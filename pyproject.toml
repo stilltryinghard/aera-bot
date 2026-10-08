@@ -14,7 +14,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "pytest-asyncio>=0.25", "ruff>=0.9", "fakeredis>=2.39", "PyYAML>=6"]
+dev = [
+  "pytest>=8", "pytest-asyncio>=0.25", "ruff>=0.9", "fakeredis>=2.39", "PyYAML>=6",
+  "coverage>=7.6",
+]
 
 [tool.setuptools.packages.find]
 include = ["app*"]
@@ -33,3 +36,14 @@ select = ["E", "F", "I"]
 [tool.ruff.lint.per-file-ignores]
 "app/bot/texts/portal.py" = ["E501"]
 "app/bot/texts/privacy.py" = ["E501"]
+# Embedded Lua scripts and user-facing copy.
+"app/bot/web_login.py" = ["E501"]
+
+[tool.coverage.run]
+source = ["app"]
+# SQLAlchemy's async engine runs code inside greenlets.
+concurrency = ["greenlet", "thread"]
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true

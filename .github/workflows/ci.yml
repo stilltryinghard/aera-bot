@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.lock
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.lock coverage==7.16.2
+          pip install --no-deps -e .
+      - name: Tests with coverage
+        run: |
+          coverage run -m pytest -q
+          coverage report --skip-covered
+      # Older modules predate the lint config, so only files touched by the change are checked.
+      - name: Lint changed files
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            BASE=$(git rev-parse HEAD~1 2>/dev/null || git hash-object -t tree /dev/null)
+          fi
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "$BASE" HEAD -- '*.py')
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No Python files changed"
+            exit 0
+          fi
+          printf '%s\n' "${files[@]}"
+          ruff check "${files[@]}"
+          ruff format --check "${files[@]}"
+
+  # Production runs on PostgreSQL, whose row locks and ordering differ from SQLite.
+  test-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: aera
+          POSTGRES_PASSWORD: aera
+          POSTGRES_DB: aera_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aera -d aera_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://aera:aera@localhost:5432/aera_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.lock
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.lock
+          pip install --no-deps -e .
+      - name: Tests on PostgreSQL
+        run: pytest -q

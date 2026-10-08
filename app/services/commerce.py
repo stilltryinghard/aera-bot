@@ -137,6 +137,16 @@ class CommerceService:
         payment.paid_at = current
         payment.applied_at = current
         self.db.add(ProvisioningJob(payment_id=payment.id, subscription_id=sub.id))
+        from app.db.models import PromoCode, PromoUse
+
+        promo_id = await self.db.scalar(
+            select(PromoUse.promo_id).where(PromoUse.payment_id == payment.id)
+        )
+        if promo_id:
+            promo = await self.db.scalar(
+                select(PromoCode).where(PromoCode.id == promo_id).with_for_update()
+            )
+            promo.uses += 1
         from app.db.models import Referral
 
         referral = await self.db.scalar(

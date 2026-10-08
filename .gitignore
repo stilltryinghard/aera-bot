@@ -26,3 +26,4 @@ dist/
 Thumbs.db
 # Optional third-party installers
 *.exe
+.coverage

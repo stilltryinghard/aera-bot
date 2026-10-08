@@ -150,13 +150,16 @@ class CheckoutService:
                     .where(
                         Payment.status == "PENDING",
                         Payment.provider.in_(["yookassa", "crypto_pay"]),
+                        # Intents whose provider call failed can never be paid; skip them in SQL
+                        # so they cannot crowd payable invoices out of the batch.
+                        Payment.details["provider_ready"].as_boolean().is_(True),
                     )
+                    .order_by(Payment.created_at)
                     .limit(50)
                 )
             )
         for payment in records:
-            if payment.details.get("provider_ready"):
-                try:
-                    await self.reconcile(payment.id)
-                except Exception:
-                    continue
+            try:
+                await self.reconcile(payment.id)
+            except Exception:
+                continue

@@ -28,7 +28,7 @@ from app.bot.presentation import (
     subscription_caption,
 )
 from app.bot.texts import ru
-from app.config import get_settings
+from app.config import get_settings, redis_options
 from app.core.security import TokenVault
 from app.db.models import Plan, ProvisioningJob, SupportMessage, SupportTicket
 from app.db.session import sessions
@@ -560,12 +560,13 @@ def create_dispatcher() -> Dispatcher:
     from app.bot.admin import router as admin_router
     from app.bot.checkout import router as checkout_router
     from app.bot.middleware import GuardMiddleware
-    from app.bot.web_login import router as web_login_router
     from app.bot.payments import router as payment_router
     from app.bot.portal import router as portal_router
     from app.bot.portal_admin import router as portal_admin_router
+    from app.bot.web_login import router as web_login_router
 
-    dispatcher = Dispatcher(storage=RedisStorage.from_url(settings.redis_url))
+    storage = RedisStorage.from_url(settings.redis_url, connection_kwargs=redis_options(settings))
+    dispatcher = Dispatcher(storage=storage)
     guard = GuardMiddleware()
     dispatcher.message.outer_middleware(guard)
     dispatcher.callback_query.outer_middleware(guard)

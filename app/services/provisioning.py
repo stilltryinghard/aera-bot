@@ -41,68 +41,110 @@ class ProvisioningService:
                     traffic_limit_bytes=sub.traffic_limit_bytes,
                 )
                 db.add(client)
-        async with self.sessions.begin() as db:
-            job = await db.scalar(
-                select(ProvisioningJob).where(ProvisioningJob.id == job_id).with_for_update()
-            )
-            if job.status == "DONE":
-                return True
-            sub = await db.scalar(
-                select(Subscription).where(Subscription.id == job.subscription_id).with_for_update()
-            )
-            user = await db.get(User, sub.user_id)
-            client = await db.scalar(select(VPNClient).where(VPNClient.subscription_id == sub.id))
-            enabled = (
-                user.is_active
-                and not user.is_blocked
-                and sub.status not in {"SUSPENDED", "CANCELLED"}
-                and utc(sub.expires_at) > datetime.now(UTC)
-            )
-            spec = ClientSpec(
-                client.uuid,
-                client.email,
-                client.inbound_id,
-                sub.expires_at,
-                sub.traffic_limit_bytes,
-                enabled,
-                client.server_id,
-            )
+        # Never hold row locks across the panel call: snapshot, push, then re-check and record.
+        for _ in range(3):
+            async with self.sessions() as db:
+                job = await db.get(ProvisioningJob, job_id)
+                if job.status == "DONE":
+                    return True
+                sub = await db.get(Subscription, job.subscription_id)
+                spec = await self._spec(db, sub)
             try:
                 await self.adapter.ensure_client(spec)
             except Exception:
-                job.attempts += 1
-                job.next_attempt_at = datetime.now(UTC) + timedelta(
-                    seconds=min(5 * 3 ** min(job.attempts - 1, 6), 300)
-                )
-                job.status = "RETRY"
+                async with self.sessions.begin() as db:
+                    job = await db.scalar(
+                        select(ProvisioningJob)
+                        .where(ProvisioningJob.id == job_id)
+                        .with_for_update()
+                    )
+                    if job.status != "DONE":
+                        job.attempts += 1
+                        job.next_attempt_at = datetime.now(UTC) + timedelta(
+                            seconds=min(5 * 3 ** min(job.attempts - 1, 6), 300)
+                        )
+                        job.status = "RETRY"
                 return False
-            client.enabled = enabled
-            client.expires_at = sub.expires_at
-            client.traffic_limit_bytes = sub.traffic_limit_bytes
-            sub.status = "ACTIVE" if enabled else "SUSPENDED"
-            job.status = "DONE"
-            from app.services.notifications import enqueue
-
-            if enabled and job.payment_id and notify:
-                await enqueue(
-                    db,
-                    f"ready:{job.id}",
-                    user.id,
-                    "READY",
-                    "AERA готова ✓ Откройте бота, чтобы подключить устройство.",
-                    sub.id,
+            async with self.sessions.begin() as db:
+                job = await db.scalar(
+                    select(ProvisioningJob).where(ProvisioningJob.id == job_id).with_for_update()
                 )
-            elif enabled and user.trial_used and not job.payment_id:
-                from app.db.models import Payment
-
-                paid = await db.scalar(
-                    select(Payment.id)
-                    .where(Payment.user_id == user.id, Payment.status == "PAID")
-                    .limit(1)
+                if job.status == "DONE":
+                    return True
+                sub = await db.scalar(
+                    select(Subscription)
+                    .where(Subscription.id == job.subscription_id)
+                    .with_for_update()
                 )
-                if not paid:
-                    sub.status = "TRIAL"
-            return True
+                if await self._spec(db, sub) != spec:
+                    # Changed while the panel call was in flight; push the new state.
+                    continue
+                user = await db.get(User, sub.user_id)
+                client = await db.scalar(
+                    select(VPNClient).where(VPNClient.subscription_id == sub.id)
+                )
+                enabled = spec.enabled
+                client.enabled = enabled
+                client.expires_at = sub.expires_at
+                client.traffic_limit_bytes = sub.traffic_limit_bytes
+                sub.status = "ACTIVE" if enabled else "SUSPENDED"
+                job.status = "DONE"
+                from app.services.notifications import enqueue
+
+                if enabled and job.payment_id and notify:
+                    await enqueue(
+                        db,
+                        f"ready:{job.id}",
+                        user.id,
+                        "READY",
+                        "AERA готова ✓ Откройте бота, чтобы подключить устройство.",
+                        sub.id,
+                    )
+                elif enabled and user.trial_used and not job.payment_id:
+                    from app.db.models import Payment
+
+                    paid = await db.scalar(
+                        select(Payment.id)
+                        .where(Payment.user_id == user.id, Payment.status == "PAID")
+                        .limit(1)
+                    )
+                    if not paid:
+                        sub.status = "TRIAL"
+                return True
+        # The subscription kept changing; the worker retries the job on its next tick.
+        return False
+
+    @staticmethod
+    async def _spec(db, sub) -> ClientSpec:
+        user = await db.get(User, sub.user_id)
+        client = await db.scalar(select(VPNClient).where(VPNClient.subscription_id == sub.id))
+        enabled = (
+            user.is_active
+            and not user.is_blocked
+            and sub.status not in {"SUSPENDED", "CANCELLED"}
+            and utc(sub.expires_at) > datetime.now(UTC)
+        )
+        return ClientSpec(
+            client.uuid,
+            client.email,
+            client.inbound_id,
+            sub.expires_at,
+            sub.traffic_limit_bytes,
+            enabled,
+            client.server_id,
+        )
+
+    @staticmethod
+    def _client_spec(client) -> ClientSpec:
+        return ClientSpec(
+            client.uuid,
+            client.email,
+            client.inbound_id,
+            client.expires_at,
+            client.traffic_limit_bytes,
+            client.enabled,
+            client.server_id,
+        )
 
     async def tick(self) -> None:
         async with self.sessions() as db:
@@ -123,6 +165,8 @@ class ProvisioningService:
                     job.attempts += 1
                     job.status = "RETRY"
                     job.next_attempt_at = datetime.now(UTC) + timedelta(seconds=300)
+        # Status changes are DB-only and short; panel I/O happens after commit.
+        pending = []
         async with self.sessions.begin() as db:
             from app.services.referrals import reward_referrals
 
@@ -151,25 +195,24 @@ class ProvisioningService:
                     UTC
                 ) <= timedelta(days=3):
                     sub.status = "EXPIRING"
-                try:
-                    await self.adapter.ensure_client(
-                        ClientSpec(
-                            client.uuid,
-                            client.email,
-                            client.inbound_id,
-                            client.expires_at,
-                            client.traffic_limit_bytes,
-                            client.enabled,
-                            client.server_id,
-                        )
-                    )
-                    traffic = await self.adapter.get_client_traffic(client.email)
-                    client.traffic_used_bytes = traffic.uploaded + traffic.downloaded
-                    if (
-                        client.traffic_limit_bytes
-                        and client.traffic_used_bytes >= client.traffic_limit_bytes
-                    ):
-                        client.enabled = False
-                except Exception:
-                    # EXPIRED remains eligible for later disable retries.
+                pending.append((client.id, self._client_spec(client)))
+        for client_id, spec in pending:
+            try:
+                await self.adapter.ensure_client(spec)
+                traffic = await self.adapter.get_client_traffic(spec.email)
+            except Exception:
+                # EXPIRED remains eligible for later disable retries.
+                continue
+            async with self.sessions.begin() as db:
+                client = await db.scalar(
+                    select(VPNClient).where(VPNClient.id == client_id).with_for_update()
+                )
+                if client is None or self._client_spec(client) != spec:
+                    # Changed meanwhile; the next tick pushes and measures the new state.
                     continue
+                client.traffic_used_bytes = traffic.uploaded + traffic.downloaded
+                if (
+                    client.traffic_limit_bytes
+                    and client.traffic_used_bytes >= client.traffic_limit_bytes
+                ):
+                    client.enabled = False

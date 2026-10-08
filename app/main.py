@@ -13,10 +13,11 @@ from redis.asyncio import Redis
 from sqlalchemy import select, text
 
 from app.api.admin import router as admin_router
+from app.api.checkout_api import router as checkout_api_router
 from app.api.crypto import router as crypto_router
 from app.api.external_payments import router as external_payments_router
 from app.api.freekassa import router as freekassa_router
-from app.config import get_settings
+from app.config import get_settings, redis_options
 from app.core.exceptions import AERAError
 from app.core.logging import log_error
 from app.core.security import TokenVault, token_hash
@@ -29,7 +30,7 @@ from app.services.provisioning import ProvisioningService
 
 settings = get_settings()
 vault = TokenVault(settings.app_secret)
-redis = Redis.from_url(settings.redis_url)
+redis = Redis.from_url(settings.redis_url, **redis_options(settings))
 adapter = create_adapter(sessions, settings)
 provisioner = ProvisioningService(sessions, adapter, vault)
 logger = logging.getLogger("aera")
@@ -54,7 +55,6 @@ app.include_router(external_payments_router)
 # Card checkout is not configured; expose only informational return pages.
 # FreeKassa webhook enabled; signature and source-IP validation required.
 app.include_router(freekassa_router)
-from app.api.checkout_api import router as checkout_api_router
 app.include_router(checkout_api_router)
 
 

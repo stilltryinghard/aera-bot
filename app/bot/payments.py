@@ -7,34 +7,11 @@ from sqlalchemy import select, update
 from app.bot.keyboards import keyboard
 from app.bot.texts import ru
 from app.config import get_settings
-from app.core.security import TokenVault
-from app.db.models import Payment, ProvisioningJob, SaleOrder, User
+from app.db.models import ProvisioningJob, SaleOrder, User
 from app.db.session import sessions
-from app.services.commerce import CommerceService
+from app.services.stars import apply_receipt, validate_invoice
 
 router = Router()
-
-
-async def validate_invoice(
-    db, payment_id: str, telegram_id: int, amount: int, currency: str
-) -> Payment:
-    payment = await db.get(Payment, payment_id)
-    user = await db.get(User, payment.user_id) if payment else None
-    if (
-        not payment
-        or not user
-        or user.telegram_id != telegram_id
-        or payment.provider != "telegram_stars"
-        or currency != payment.currency
-        or amount != payment.amount_minor
-        or payment.status not in {"PENDING", "PAID"}
-    ):
-        raise ValueError("Invoice mismatch")
-    if payment.details.get("manual_order") and not await db.scalar(
-        select(SaleOrder.id).where(SaleOrder.payment_id == payment.id)
-    ):
-        raise ValueError("Manual order missing")
-    return payment
 
 
 @router.pre_checkout_query()
@@ -77,22 +54,16 @@ async def successful_payment(message: Message) -> None:
     receipt = message.successful_payment
     try:
         async with sessions.begin() as db:
-            payment = await validate_invoice(
+            payment, manual = await apply_receipt(
                 db,
+                settings,
                 receipt.invoice_payload,
                 message.from_user.id,
                 receipt.total_amount,
                 receipt.currency,
+                receipt.telegram_payment_charge_id,
             )
-            if payment.status == "PAID" and (
-                payment.provider_payment_id != receipt.telegram_payment_charge_id
-            ):
-                raise ValueError("Charge identity mismatch")
-            manual = await db.scalar(select(SaleOrder.id).where(SaleOrder.payment_id == payment.id))
             if manual:
-                from app.services.portal import confirm_stars
-
-                await confirm_stars(db, payment, receipt.telegram_payment_charge_id, settings)
                 user = await db.get(User, payment.user_id)
                 lang = user.language_code
                 from app.db.models import PaidLink
@@ -102,10 +73,6 @@ async def successful_payment(message: Message) -> None:
                         PaidLink.order_id == manual, PaidLink.issued_at.is_not(None)
                     )
                 )
-            else:
-                payment.provider_payment_id = receipt.telegram_payment_charge_id
-                await CommerceService(db, TokenVault(settings.app_secret)).confirm(payment.id)
-            await db.flush()
             job_id = await db.scalar(
                 select(ProvisioningJob.id).where(ProvisioningJob.payment_id == payment.id)
             )
@@ -137,5 +104,6 @@ async def successful_payment(message: Message) -> None:
         )
     except Exception as error:
         logging.getLogger("aera").error("stars_receipt_failed type=%s", type(error).__name__)
-        # Fail the webhook so Telegram can redeliver a receipt rather than losing paid events.
+        # In webhook mode the error makes Telegram redeliver. Under polling the update is
+        # already confirmed; the worker's Stars reconciliation recovers the payment.
         raise

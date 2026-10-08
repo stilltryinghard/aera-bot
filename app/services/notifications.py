@@ -7,6 +7,7 @@ from aiogram.exceptions import TelegramForbiddenError, TelegramRetryAfter
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy import select, update
 
+from app.config import get_settings
 from app.db.models import (
     Broadcast,
     BroadcastDelivery,
@@ -16,6 +17,8 @@ from app.db.models import (
     User,
 )
 from app.services.commerce import utc
+
+MAX_ATTEMPTS = 10
 
 
 async def enqueue(
@@ -36,6 +39,14 @@ async def enqueue(
         )
         .on_conflict_do_nothing(index_elements=[Notification.dedupe_key])
     )
+
+
+async def alert_admins(db, settings, key: str, text: str) -> None:
+    """Queue an operator alert once per admin; `key` makes repeated calls idempotent."""
+    for admin_id in sorted(settings.admin_ids):
+        admin = await db.scalar(select(User).where(User.telegram_id == admin_id))
+        if admin:
+            await enqueue(db, f"{key}:{admin_id}", admin.id, "ALERT", text)
 
 
 async def schedule_expiry(db) -> None:
@@ -81,7 +92,7 @@ async def send_notifications(sessions, bot: Bot, *, keys=None, allowed_types=Non
             .values(status="PENDING")
         )
         query = select(Notification.id).where(
-            Notification.status == "PENDING", Notification.attempts < 10
+            Notification.status == "PENDING", Notification.attempts < MAX_ATTEMPTS
         )
         if keys is not None:
             query = query.where(Notification.dedupe_key.in_(keys))
@@ -95,7 +106,7 @@ async def send_notifications(sessions, bot: Bot, *, keys=None, allowed_types=Non
                 .where(
                     Notification.id == record_id,
                     Notification.status == "PENDING",
-                    Notification.attempts < 10,
+                    Notification.attempts < MAX_ATTEMPTS,
                 )
                 .values(status="SENDING", updated_at=datetime.now(UTC))
             )
@@ -111,7 +122,6 @@ async def send_notifications(sessions, bot: Bot, *, keys=None, allowed_types=Non
             if record.notification_type == "ACCESS_READY":
                 from app.bot.portal import home_menu
                 from app.bot.texts.portal import text
-                from app.config import get_settings
                 from app.core.security import TokenVault
                 from app.db.models import PaidLink, Plan
 
@@ -179,6 +189,20 @@ async def send_notifications(sessions, bot: Bot, *, keys=None, allowed_types=Non
                 user.is_blocked = True
             elif result == "PENDING":
                 record.attempts += 1
+                if record.attempts >= MAX_ATTEMPTS:
+                    record.status = "FAILED"
+                    # Alerts about alerts would never stop if an admin cannot be reached.
+                    if record.notification_type != "ALERT":
+                        user = await db.get(User, record.user_id)
+                        await alert_admins(
+                            db,
+                            get_settings(),
+                            f"undelivered:{record.id}",
+                            f"⚠️ Сообщение не доставлено после {MAX_ATTEMPTS} попыток.\n"
+                            f"Тип: {record.notification_type}\n"
+                            f"Получатель: Telegram ID {user.telegram_id}\n"
+                            "Свяжись с ним вручную.",
+                        )
             else:
                 record.sent_at = datetime.now(UTC)
         if retry_delay:
@@ -188,7 +212,19 @@ async def send_notifications(sessions, bot: Bot, *, keys=None, allowed_types=Non
 
 
 async def send_broadcasts(sessions, bot: Bot) -> None:
+    # Claim a batch and commit before network I/O, like send_notifications: Telegram calls
+    # never run inside a transaction that holds row locks.
+    current = datetime.now(UTC)
     async with sessions.begin() as db:
+        # Reclaim deliveries interrupted before their result could be recorded.
+        await db.execute(
+            update(BroadcastDelivery)
+            .where(
+                BroadcastDelivery.status == "SENDING",
+                BroadcastDelivery.updated_at < current - timedelta(minutes=2),
+            )
+            .values(status="PENDING")
+        )
         deliveries = list(
             await db.scalars(
                 select(BroadcastDelivery)
@@ -197,21 +233,26 @@ async def send_broadcasts(sessions, bot: Bot) -> None:
                 .with_for_update(skip_locked=True)
             )
         )
+        claimed = [delivery.id for delivery in deliveries]
         for delivery in deliveries:
+            delivery.status, delivery.updated_at = "SENDING", current
+    for index, delivery_id in enumerate(claimed):
+        async with sessions() as db:
+            delivery = await db.get(BroadcastDelivery, delivery_id)
             broadcast = await db.get(Broadcast, delivery.broadcast_id)
             user = await db.get(User, delivery.user_id)
-            markup = None
-            if broadcast.button_text and broadcast.button_url:
-                markup = InlineKeyboardMarkup(
-                    inline_keyboard=[
-                        [InlineKeyboardButton(text=broadcast.button_text, url=broadcast.button_url)]
-                    ]
-                )
+        markup = None
+        if broadcast.button_text and broadcast.button_url:
+            markup = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [InlineKeyboardButton(text=broadcast.button_text, url=broadcast.button_url)]
+                ]
+            )
+        result, block_user, retry_delay = "SENT", False, 0
+        if user.is_blocked:
+            result = "BLOCKED"
+        else:
             try:
-                if user.is_blocked:
-                    delivery.status = "BLOCKED"
-                    broadcast.blocked += 1
-                    continue
                 if broadcast.image_file_id:
                     await bot.send_photo(
                         user.telegram_id,
@@ -222,18 +263,49 @@ async def send_broadcasts(sessions, bot: Bot) -> None:
                 else:
                     await bot.send_message(user.telegram_id, broadcast.text, reply_markup=markup)
             except TelegramForbiddenError:
-                delivery.status = "BLOCKED"
-                broadcast.blocked += 1
-                user.is_blocked = True
+                result, block_user = "BLOCKED", True
             except TelegramRetryAfter as error:
-                await asyncio.sleep(min(error.retry_after, 30))
-                break
+                result, retry_delay = "PENDING", min(error.retry_after, 30)
             except Exception:
-                delivery.status = "FAILED"
-                broadcast.failed += 1
+                result = "FAILED"
+        async with sessions.begin() as db:
+            if retry_delay:
+                # Hand this and every not-yet-sent claim back for a later run.
+                await db.execute(
+                    update(BroadcastDelivery)
+                    .where(
+                        BroadcastDelivery.id.in_(claimed[index:]),
+                        BroadcastDelivery.status == "SENDING",
+                    )
+                    .values(status="PENDING")
+                )
             else:
-                delivery.status = "SENT"
-                broadcast.sent += 1
-            if broadcast.sent + broadcast.failed + broadcast.blocked >= broadcast.total:
-                broadcast.status = "DONE"
+                delivery = await db.scalar(
+                    select(BroadcastDelivery)
+                    .where(BroadcastDelivery.id == delivery_id)
+                    .with_for_update()
+                )
+                if delivery.status == "SENDING":
+                    broadcast = await db.scalar(
+                        select(Broadcast)
+                        .where(Broadcast.id == delivery.broadcast_id)
+                        .with_for_update()
+                    )
+                    delivery.status = result
+                    if result == "SENT":
+                        broadcast.sent += 1
+                    elif result == "FAILED":
+                        broadcast.failed += 1
+                    else:
+                        broadcast.blocked += 1
+                    if block_user:
+                        await db.execute(
+                            update(User).where(User.id == user.id).values(is_blocked=True)
+                        )
+                    if broadcast.sent + broadcast.failed + broadcast.blocked >= broadcast.total:
+                        broadcast.status = "DONE"
+        if retry_delay:
+            await asyncio.sleep(retry_delay)
+            break
+        if result != "BLOCKED" or block_user:
             await asyncio.sleep(0.06)
