@@ -3,7 +3,6 @@ import io
 import logging
 from datetime import UTC, datetime
 from functools import lru_cache
-from html import escape
 
 import qrcode
 from aiogram import Dispatcher, Router
@@ -75,12 +74,6 @@ async def start(message: Message, state: FSMContext) -> None:
 @router.message(Command("privacy", "terms"))
 async def legal(message: Message) -> None:
     command = (message.text or "").split()[0].split("@")[0]
-    if settings.manual_sales and command == "/terms":
-        await message.answer(ru.MANUAL_TERMS)
-        return
-    if settings.manual_sales and command == "/privacy":
-        await message.answer(ru.MANUAL_PRIVACY)
-        return
     key = "privacy_text" if command == "/privacy" else "terms_text"
     async with sessions() as db:
         text = await setting(db, key, ru.PRIVACY if key == "privacy_text" else ru.TERMS)
@@ -134,10 +127,6 @@ async def support_message(message: Message, state: FSMContext) -> None:
 
 @router.message(PromoState.code)
 async def promo_message(message: Message, state: FSMContext) -> None:
-    if settings.manual_sales:
-        await state.clear()
-        await message.answer(ru.MANUAL_HANDOFF, parse_mode="HTML", reply_markup=menu())
-        return
     data = await state.get_data()
     async with sessions.begin() as db:
         service = CommerceService(db, vault)
@@ -179,66 +168,7 @@ async def navigate(call: CallbackQuery, state: FSMContext) -> None:
 
             await send_windows_installer(call.message)
             return
-        if settings.manual_sales:
-            if data.startswith("plan:"):
-                from app.bot.manual import submit_selection
-
-                await submit_selection(call, data.split(":", 1)[1])
-                return
-            if data == "plans":
-                await edit_screen(
-                    call.message,
-                    ru.HIDDIFY_BEFORE_PLANS,
-                    reply_markup=keyboard(
-                        ("Открыть тарифы", "hiddify:plans"), ("Главное меню", "menu")
-                    ),
-                )
-                return
-            if data == "hiddify:plans":
-                data = "plans"
-            if data.startswith(
-                ("buy:", "accept:", "promo:", "pay:", "crypto:", "crypto-check:")
-            ) or data in {"trial", "referral"}:
-                await edit_screen(call.message, ru.MANUAL_HANDOFF, reply_markup=menu())
-                return
-            if data in {"link", "qr", "rotate", "revoke", "revoke-confirm"}:
-                await edit_screen(call.message, ru.MANUAL_LINK, reply_markup=menu())
-                return
-            if data == "devices":
-                data = "connect"
-            if data == "subscription":
-                from app.db.models import SupportTicket
-                from app.services.requests import paid_requests
-
-                async with sessions.begin() as db:
-                    service = CommerceService(db, vault)
-                    user = await service.user(call.from_user.id)
-                    tickets = list(
-                        await db.scalars(
-                            paid_requests()
-                            .where(SupportTicket.user_id == user.id)
-                            .order_by(SupportTicket.created_at.desc())
-                            .limit(5)
-                        )
-                    )
-                text = "<b>Твои заявки</b>\n\n" + (
-                    "\n\n".join(
-                        f"№ {t.id[:8]} - {t.created_at:%d.%m.%Y}\n{escape(t.subject)}\n"
-                        + (
-                            "Подключён"
-                            if t.status == "CONNECTED"
-                            else "В архиве"
-                            if t.closed_at
-                            else "В работе"
-                        )
-                        for t in tickets
-                    )
-                    if tickets
-                    else "📤 Оплаченных заявок пока нет. После оплаты заявка появится здесь."
-                )
-                await edit_screen(call.message, text, reply_markup=menu())
-                return
-        text, markup, art = ru.WELCOME if settings.manual_sales else ru.MENU, menu(), "welcome"
+        text, markup, art = ru.MENU, menu(), "welcome"
         async with sessions.begin() as db:
             service = CommerceService(db, vault)
             user = await service.user(call.from_user.id, username=call.from_user.username)
@@ -266,10 +196,7 @@ async def navigate(call: CallbackQuery, state: FSMContext) -> None:
             if data == "onboarding":
                 text, markup = ru.ONBOARDING, keyboard(("Продолжить", "how"))
             elif data == "how":
-                text, markup = (
-                    ru.MANUAL_HANDOFF if settings.manual_sales else ru.HOW,
-                    keyboard(("Посмотреть тарифы", "plans")),
-                )
+                text, markup = ru.HOW, keyboard(("Посмотреть тарифы", "plans"))
             elif data == "plans":
                 plans = await service.plans()
                 text, art = catalog_caption(plans), "plans"
@@ -282,11 +209,7 @@ async def navigate(call: CallbackQuery, state: FSMContext) -> None:
                     *[(p.name, f"plan:{p.id}") for p in plans if not family_of(p)],
                     ("Главное меню", "menu"),
                 )
-                if (
-                    not settings.manual_sales
-                    and await setting(db, "trial_enabled", "false") == "true"
-                    and not user.trial_used
-                ):
+                if await setting(db, "trial_enabled", "false") == "true" and not user.trial_used:
                     from aiogram.types import InlineKeyboardButton
 
                     markup.inline_keyboard.insert(
@@ -467,28 +390,20 @@ async def navigate(call: CallbackQuery, state: FSMContext) -> None:
                     ("✅ Я подключился", "connected"),
                     ("Назад", "connect"),
                 )
-                if settings.manual_sales:
-                    text = ru.MANUAL_INSTRUCTION.format(device=names[device])
-                    markup = keyboard(("Выбрать тариф", "plans"), ("Назад", "connect"))
                 if device == "windows":
-                    if settings.manual_sales:
-                        text = ru.WINDOWS_INSTRUCTION
                     markup.inline_keyboard.insert(
                         0, [button("Скачать установщик 📦", "download:windows")]
                     )
-                else:
-                    if device == "ios" and settings.manual_sales:
-                        text = ru.IOS_INSTRUCTION
-                    if device not in {"ios", "android"}:
-                        markup.inline_keyboard.insert(
-                            0,
-                            [
-                                InlineKeyboardButton(
-                                    text="📲 Установить Hiddify",
-                                    url=ru.HIDDIFY_DOWNLOAD_URLS[device],
-                                )
-                            ],
-                        )
+                elif device == "macos":
+                    markup.inline_keyboard.insert(
+                        0,
+                        [
+                            InlineKeyboardButton(
+                                text="📲 Установить Hiddify",
+                                url=ru.HIDDIFY_DOWNLOAD_URLS[device],
+                            )
+                        ],
+                    )
             elif data in {"link", "qr", "rotate"}:
                 if not client or not client.enabled:
                     text = ru.NO_SUB
@@ -560,10 +475,10 @@ def create_dispatcher() -> Dispatcher:
     from app.bot.admin import router as admin_router
     from app.bot.checkout import router as checkout_router
     from app.bot.middleware import GuardMiddleware
-    from app.bot.web_login import router as web_login_router
     from app.bot.payments import router as payment_router
     from app.bot.portal import router as portal_router
     from app.bot.portal_admin import router as portal_admin_router
+    from app.bot.web_login import router as web_login_router
 
     dispatcher = Dispatcher(storage=RedisStorage.from_url(settings.redis_url))
     guard = GuardMiddleware()

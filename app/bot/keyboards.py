@@ -1,7 +1,5 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-from app.config import get_settings
-
 
 def keyboard(*rows: tuple[str, str]) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -16,22 +14,12 @@ def button(label, data, style=None):
 
 
 def welcome_menu():
-    if get_settings().manual_sales:
-        return keyboard(
-            ("ВЫБРАТЬ ТАРИФ 💰", "plans"),
-            ("Подключиться 🔋", "connect"),
-            ("Как это работает 📡", "how"),
-            ("Мои заявки 📤", "subscription"),
-            ("Поддержка 💊", "support"),
-        )
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [button("✦ Выбрать тариф", "plans", "primary")],
             [
                 button("Подключиться", "connect"),
-                button(
-                    "Мои заявки" if get_settings().manual_sales else "◉ Моя AERA", "subscription"
-                ),
+                button("◉ Моя AERA", "subscription"),
             ],
             [button("Как это работает", "how"), button("Поддержка", "support")],
         ]
@@ -39,8 +27,6 @@ def welcome_menu():
 
 
 def menu() -> InlineKeyboardMarkup:
-    if get_settings().manual_sales:
-        return welcome_menu()
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [button("✦ Купить / продлить", "plans", "primary")],

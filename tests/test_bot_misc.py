@@ -307,13 +307,13 @@ def test_labels_and_captions():
 # ---------- keyboards ----------
 
 
-def test_keyboards_by_mode(app_settings):
-    manual = {b.callback_data for row in welcome_menu().inline_keyboard for b in row}
-    assert "plans" in manual and menu().inline_keyboard == welcome_menu().inline_keyboard
-    app_settings(manual_sales=False)
-    automatic = {b.callback_data for row in menu().inline_keyboard for b in row}
-    assert {"devices", "referral"} <= automatic
+def test_keyboards():
+    welcome = {b.callback_data for row in welcome_menu().inline_keyboard for b in row}
+    assert welcome == {"plans", "connect", "subscription", "how", "support"}
     assert welcome_menu().inline_keyboard[0][0].style == "primary"
+    assert {"devices", "referral"} <= {
+        b.callback_data for row in menu().inline_keyboard for b in row
+    }
 
 
 # ---------- httpx transport ----------
