@@ -37,16 +37,6 @@ async def checkout(call: CallbackQuery) -> None:
     await call.answer()
     data = call.data.split(":")
     settings = get_settings()
-    if settings.manual_sales:
-        if data[0] == "checkorder":
-            await edit_screen(
-                call.message, ru.MANUAL_HANDOFF, reply_markup=keyboard(("Тарифы", "plans"))
-            )
-        else:
-            from app.bot.manual import submit_selection
-
-            await submit_selection(call, data[1] if data[0] == "checkout" else data[2])
-        return
     vault = TokenVault(settings.app_secret)
     if data[0] == "checkout":
         from html import escape
