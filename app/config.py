@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     # long an abandoned transaction may keep its locks.
     db_lock_timeout_ms: int = Field(default=10000, ge=0)
     db_idle_in_transaction_timeout_ms: int = Field(default=60000, ge=0)
+    # Upper bound for one SQL statement and for one Redis call; 0 disables.
+    db_command_timeout_s: float = Field(default=30, ge=0)
+    redis_timeout_s: float = Field(default=5, ge=0)
     redis_url: str = "redis://localhost:6379/0"
     public_base_url: str = "http://localhost:8000"
     bot_token: str = Field(default="", repr=False)
@@ -91,6 +94,11 @@ class Settings(BaseSettings):
             if len(self.telegram_webhook_secret) < 32:
                 raise ValueError("Production requires TELEGRAM_WEBHOOK_SECRET")
         return self
+
+
+def redis_options(settings: Settings) -> dict:
+    timeout = settings.redis_timeout_s or None
+    return {"socket_timeout": timeout, "socket_connect_timeout": timeout}
 
 
 @lru_cache

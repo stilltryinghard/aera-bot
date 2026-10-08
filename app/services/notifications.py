@@ -7,6 +7,7 @@ from aiogram.exceptions import TelegramForbiddenError, TelegramRetryAfter
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy import select, update
 
+from app.config import get_settings
 from app.db.models import (
     Broadcast,
     BroadcastDelivery,
@@ -16,6 +17,8 @@ from app.db.models import (
     User,
 )
 from app.services.commerce import utc
+
+MAX_ATTEMPTS = 10
 
 
 async def enqueue(
@@ -36,6 +39,14 @@ async def enqueue(
         )
         .on_conflict_do_nothing(index_elements=[Notification.dedupe_key])
     )
+
+
+async def alert_admins(db, settings, key: str, text: str) -> None:
+    """Queue an operator alert once per admin; `key` makes repeated calls idempotent."""
+    for admin_id in sorted(settings.admin_ids):
+        admin = await db.scalar(select(User).where(User.telegram_id == admin_id))
+        if admin:
+            await enqueue(db, f"{key}:{admin_id}", admin.id, "ALERT", text)
 
 
 async def schedule_expiry(db) -> None:
@@ -81,7 +92,7 @@ async def send_notifications(sessions, bot: Bot, *, keys=None, allowed_types=Non
             .values(status="PENDING")
         )
         query = select(Notification.id).where(
-            Notification.status == "PENDING", Notification.attempts < 10
+            Notification.status == "PENDING", Notification.attempts < MAX_ATTEMPTS
         )
         if keys is not None:
             query = query.where(Notification.dedupe_key.in_(keys))
@@ -95,7 +106,7 @@ async def send_notifications(sessions, bot: Bot, *, keys=None, allowed_types=Non
                 .where(
                     Notification.id == record_id,
                     Notification.status == "PENDING",
-                    Notification.attempts < 10,
+                    Notification.attempts < MAX_ATTEMPTS,
                 )
                 .values(status="SENDING", updated_at=datetime.now(UTC))
             )
@@ -111,7 +122,6 @@ async def send_notifications(sessions, bot: Bot, *, keys=None, allowed_types=Non
             if record.notification_type == "ACCESS_READY":
                 from app.bot.portal import home_menu
                 from app.bot.texts.portal import text
-                from app.config import get_settings
                 from app.core.security import TokenVault
                 from app.db.models import PaidLink, Plan
 
@@ -179,6 +189,20 @@ async def send_notifications(sessions, bot: Bot, *, keys=None, allowed_types=Non
                 user.is_blocked = True
             elif result == "PENDING":
                 record.attempts += 1
+                if record.attempts >= MAX_ATTEMPTS:
+                    record.status = "FAILED"
+                    # Alerts about alerts would never stop if an admin cannot be reached.
+                    if record.notification_type != "ALERT":
+                        user = await db.get(User, record.user_id)
+                        await alert_admins(
+                            db,
+                            get_settings(),
+                            f"undelivered:{record.id}",
+                            f"⚠️ Сообщение не доставлено после {MAX_ATTEMPTS} попыток.\n"
+                            f"Тип: {record.notification_type}\n"
+                            f"Получатель: Telegram ID {user.telegram_id}\n"
+                            "Свяжись с ним вручную.",
+                        )
             else:
                 record.sent_at = datetime.now(UTC)
         if retry_delay:

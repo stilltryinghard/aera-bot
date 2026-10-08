@@ -20,7 +20,7 @@ async def main() -> None:
     from app.services.checkout import CheckoutService
 
     checkout = CheckoutService(sessions, settings, TokenVault(settings.app_secret))
-    next_poll = datetime.now(UTC)
+    next_poll = next_stars_check = datetime.now(UTC)
     bot = create_bot(settings) if settings.bot_token else None
     try:
         while True:
@@ -49,6 +49,16 @@ async def main() -> None:
                     await service.tick()
                     async with sessions.begin() as db:
                         await schedule_expiry(db)
+                if bot and datetime.now(UTC) >= next_stars_check:
+                    next_stars_check = datetime.now(UTC) + timedelta(minutes=10)
+                    try:
+                        from app.services.stars import reconcile
+
+                        await reconcile(sessions, bot, settings)
+                    except Exception as error:
+                        logging.getLogger("aera").error(
+                            "stars_reconcile_failed type=%s", type(error).__name__
+                        )
                 if bot:
                     await send_notifications(
                         sessions,
@@ -59,6 +69,7 @@ async def main() -> None:
                             "PORTAL",
                             "TRIAL_ACTIVE",
                             "ACCESS_READY",
+                            "ALERT",
                         }
                         if settings.manual_sales
                         else None,

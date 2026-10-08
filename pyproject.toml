@@ -36,6 +36,8 @@ select = ["E", "F", "I"]
 [tool.ruff.lint.per-file-ignores]
 "app/bot/texts/portal.py" = ["E501"]
 "app/bot/texts/privacy.py" = ["E501"]
+# Embedded Lua scripts and user-facing copy.
+"app/bot/web_login.py" = ["E501"]
 
 [tool.coverage.run]
 source = ["app"]

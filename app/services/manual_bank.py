@@ -15,6 +15,8 @@ from app.services.portal import confirm_order
 _create_lock = asyncio.Lock()
 # WATA links expire after 3 days; allow a day for late settlement before giving up.
 WATA_ABANDON_AFTER = timedelta(days=4)
+# Well past the 20 s HTTP timeout: an older unanswered link request is no longer in flight.
+WATA_REQUEST_ABANDON_AFTER = timedelta(minutes=2)
 
 
 def merchant(settings, provider):
@@ -75,9 +77,22 @@ async def checkout(sessions, settings, order_id, user_id, provider):
                     if payment.details.get("checkout_url"):
                         return payment.details["checkout_url"]
                     if provider == "wata" and payment.details.get("request_started"):
-                        # Do not repeat a non-idempotent POST after an ambiguous network failure.
-                        raise ValueError("WATA link creation needs reconciliation")
-                else:
+                        # The link POST is not idempotent and its outcome is unknown. Never
+                        # repeat it for the same payment; once it can no longer be in flight,
+                        # abandon that attempt. Its link never reached the customer, so it
+                        # cannot have been paid.
+                        started = payment.details.get("request_started_at")
+                        if (
+                            started
+                            and datetime.now(UTC) - datetime.fromtimestamp(started, UTC)
+                            < WATA_REQUEST_ABANDON_AFTER
+                        ):
+                            raise ValueError("WATA link creation in progress")
+                        payment.status = "CANCELLED"
+                        order.payment_id = None
+                        await db.flush()
+                        payment = None
+                if payment is None:
                     payment = Payment(
                         user_id=user_id,
                         plan_id=order.plan_id,
@@ -89,7 +104,11 @@ async def checkout(sessions, settings, order_id, user_id, provider):
                     db.add(payment)
                     await db.flush()
                     order.payment_id = payment.id
-                payment.details = {**payment.details, "request_started": True}
+                payment.details = {
+                    **payment.details,
+                    "request_started": True,
+                    "request_started_at": datetime.now(UTC).timestamp(),
+                }
                 identity, amount = payment.id, payment.amount_minor
             return_url = f"https://t.me/{settings.bot_username}"
             if provider == "yookassa":
@@ -105,7 +124,13 @@ async def checkout(sessions, settings, order_id, user_id, provider):
             if urlsplit(url).scheme != "https":
                 raise ValueError("Unsafe checkout URL")
             async with sessions.begin() as db:
-                payment = await db.get(Payment, identity)
+                await db.execute(
+                    update(User).where(User.id == user_id).values(is_active=User.is_active)
+                )
+                payment = await db.get(Payment, identity, populate_existing=True)
+                if payment.status != "PENDING":
+                    # Abandoned by a later attempt; never hand out a link nobody will poll.
+                    raise ValueError("Checkout attempt was abandoned")
                 payment.provider_payment_id = body["id"]
                 payment.details = {**payment.details, "checkout_url": url}
             return url

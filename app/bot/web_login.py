@@ -1,11 +1,12 @@
 """Website login approval: Telegram identity comes only from private Bot API updates."""
+
 import hashlib
 import json
 import os
 import re
 
 from aiogram import F, Router
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from aiogram.types import CallbackQuery, Message
 from redis.asyncio import Redis
 
 router = Router(name="website_login")
@@ -35,7 +36,13 @@ def key(request):
 async def operation(script, request, *args):
     if not REQUEST.fullmatch(request):
         return None
-    cache = Redis.from_url(os.environ['AERA_WEB_LOGIN_REDIS_URL'], decode_responses=True)
+    from app.config import get_settings, redis_options
+
+    cache = Redis.from_url(
+        os.environ["AERA_WEB_LOGIN_REDIS_URL"],
+        decode_responses=True,
+        **redis_options(get_settings()),
+    )
     try:
         return await cache.eval(script, 1, key(request), *args)
     finally:
@@ -52,9 +59,11 @@ async def start(message: Message):
             from app.core.security import TokenVault
             from app.db.session import sessions
             from app.services.commerce import CommerceService
+
             async with sessions.begin() as db:
                 user = await CommerceService(db, TokenVault(get_settings().app_secret)).user(
-                    message.from_user.id, username=message.from_user.username,
+                    message.from_user.id,
+                    username=message.from_user.username,
                     first_name=message.from_user.first_name,
                 )
                 if not user.is_active or user.is_blocked:
@@ -72,9 +81,12 @@ async def start(message: Message):
         return
     if plan_id:
         from app.bot.portal import send_selected_checkout
+
         await send_selected_checkout(message, plan_id, checkout_method)
         return
-    await message.answer("✅ Вход на сайт AERA выполнен. Вернитесь в исходную вкладку браузера — личный кабинет откроется автоматически.")
+    await message.answer(
+        "✅ Вход на сайт AERA выполнен. Вернитесь в исходную вкладку браузера — личный кабинет откроется автоматически."
+    )
 
 
 @router.callback_query(F.data.startswith("webok:") | F.data.startswith("webno:"))
@@ -84,10 +96,26 @@ async def confirm(call: CallbackQuery):
         return
     accepted = call.data.startswith("webok:")
     try:
-        result = await operation(APPROVE, call.data.split(":", 1)[1], str(call.from_user.id), "approved" if accepted else "cancelled")
+        result = await operation(
+            APPROVE,
+            call.data.split(":", 1)[1],
+            str(call.from_user.id),
+            "approved" if accepted else "cancelled",
+        )
     except Exception:
         await call.answer("Попробуйте снова позже.", show_alert=True)
         return
-    await call.answer("Вход подтверждён" if result and accepted else "Вход отменён" if result else "Запрос уже завершён или истёк", show_alert=not bool(result))
+    await call.answer(
+        "Вход подтверждён"
+        if result and accepted
+        else "Вход отменён"
+        if result
+        else "Запрос уже завершён или истёк",
+        show_alert=not bool(result),
+    )
     if result:
-        await call.message.edit_text("✅ Вход подтверждён. Вернитесь в браузер, где начали вход: кабинет откроется автоматически." if accepted else "Вход отменён.")
+        await call.message.edit_text(
+            "✅ Вход подтверждён. Вернитесь в браузер, где начали вход: кабинет откроется автоматически."
+            if accepted
+            else "Вход отменён."
+        )

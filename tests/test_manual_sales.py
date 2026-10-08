@@ -571,8 +571,8 @@ async def test_manual_bank_checkout_guards(sessions, vault, plan_id, monkeypatch
     monkeypatch.setattr(manual_bank, "merchant", lambda *_: FakeMerchant(fail=True))
     with pytest.raises(PaymentError):
         await manual_bank.checkout(sessions, settings, ids[1], ids[0], "wata")
-    # A WATA POST with an unknown outcome is never repeated.
-    with pytest.raises(ValueError, match="reconciliation"):
+    # A WATA POST with an unknown outcome is never repeated while it may be in flight.
+    with pytest.raises(ValueError, match="in progress"):
         await manual_bank.checkout(sessions, settings, ids[1], ids[0], "wata")
     with pytest.raises(ValueError, match="unavailable"):
         await manual_bank.checkout(sessions, settings, ids[1], "stranger", "wata")

@@ -8,12 +8,13 @@ def engine_options(settings: Settings) -> dict:
     options = {"pool_pre_ping": True}
     if settings.database_url.startswith("postgresql+asyncpg"):
         options["connect_args"] = {
+            "command_timeout": settings.db_command_timeout_s or None,
             "server_settings": {
                 "lock_timeout": str(settings.db_lock_timeout_ms),
                 "idle_in_transaction_session_timeout": str(
                     settings.db_idle_in_transaction_timeout_ms
                 ),
-            }
+            },
         }
     return options
 

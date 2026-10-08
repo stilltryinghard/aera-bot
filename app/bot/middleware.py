@@ -7,14 +7,15 @@ from aiogram.types import CallbackQuery, Message
 from redis.asyncio import Redis
 
 from app.bot.texts import ru
-from app.config import get_settings
+from app.config import get_settings, redis_options
 from app.db.session import sessions
 from app.services.settings import setting
 
 
 class GuardMiddleware(BaseMiddleware):
     def __init__(self):
-        self.redis = Redis.from_url(get_settings().redis_url)
+        settings = get_settings()
+        self.redis = Redis.from_url(settings.redis_url, **redis_options(settings))
 
     async def __call__(self, handler, event, data):
         if not isinstance(event, (Message, CallbackQuery)) or not event.from_user:
