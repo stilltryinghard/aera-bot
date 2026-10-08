@@ -3,8 +3,10 @@ import tempfile
 
 # app.db.session builds an engine at import time; point it at a throwaway SQLite file
 # (an in-memory URL would give every pooled connection its own empty database).
+# Set TEST_DATABASE_URL to run the whole suite against PostgreSQL instead.
+_TEST_DB = os.environ.get("TEST_DATABASE_URL")
 _APP_DB = os.path.join(tempfile.mkdtemp(prefix="aera-tests-"), "app.db")
-os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_APP_DB}"
+os.environ["DATABASE_URL"] = _TEST_DB or f"sqlite+aiosqlite:///{_APP_DB}"
 os.environ.setdefault("AERA_CHECKOUT_BRIDGE_KEY", "test-bridge-key")
 
 from datetime import UTC, datetime  # noqa: E402
@@ -19,8 +21,9 @@ from app.db.models import Base, Plan, User  # noqa: E402
 
 @pytest.fixture
 async def sessions(tmp_path):
-    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'test.db'}")
+    engine = create_async_engine(_TEST_DB or f"sqlite+aiosqlite:///{tmp_path / 'test.db'}")
     async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.drop_all)
         await connection.run_sync(Base.metadata.create_all)
     yield async_sessionmaker(engine, expire_on_commit=False)
     await engine.dispose()

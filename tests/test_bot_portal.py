@@ -142,7 +142,7 @@ async def test_invalid_actions_show_error(bot_driver, data):
 async def test_blocked_user_gets_error(bot_driver, app_sessions):
     await bot_driver.send(1, "/start")
     async with app_sessions.begin() as db:
-        (await db.scalar(select(User))).is_blocked = True
+        (await db.scalar(select(User).where(User.telegram_id == 1))).is_blocked = True
     await bot_driver.click(1, "menu")
     assert bot_driver.api.last_text() == tr("error", "ru")
 
@@ -231,7 +231,7 @@ async def test_cancel_refused_after_precheckout(bot_driver, app_sessions, plans)
     await bot_driver.click(1, f"plan:{plans['plus-1m']}")
     order = await order_of(app_sessions)
     async with app_sessions.begin() as db:
-        user = await db.scalar(select(User))
+        user = await db.scalar(select(User).where(User.telegram_id == 1))
         payment = Payment(
             user_id=user.id,
             plan_id=order.plan_id,
@@ -435,7 +435,9 @@ async def test_send_selected_checkout_stars(bot_driver, app_sessions, plans):
     assert "⭐ 200 Stars" in bot_driver.api.last_text()  # terms first
     async with app_sessions.begin() as db:
         db.add(AppSetting(key="manual_stars_enabled", value="true"))
-        (await db.scalar(select(User))).terms_accepted_at = datetime.now(UTC)
+        (
+            await db.scalar(select(User).where(User.telegram_id == 1))
+        ).terms_accepted_at = datetime.now(UTC)
     await send_selected_checkout(message, plans["plus-1m"])
     assert bot_driver.api.named("createInvoiceLink")
 
