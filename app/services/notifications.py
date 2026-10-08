@@ -188,7 +188,19 @@ async def send_notifications(sessions, bot: Bot, *, keys=None, allowed_types=Non
 
 
 async def send_broadcasts(sessions, bot: Bot) -> None:
+    # Claim a batch and commit before network I/O, like send_notifications: Telegram calls
+    # never run inside a transaction that holds row locks.
+    current = datetime.now(UTC)
     async with sessions.begin() as db:
+        # Reclaim deliveries interrupted before their result could be recorded.
+        await db.execute(
+            update(BroadcastDelivery)
+            .where(
+                BroadcastDelivery.status == "SENDING",
+                BroadcastDelivery.updated_at < current - timedelta(minutes=2),
+            )
+            .values(status="PENDING")
+        )
         deliveries = list(
             await db.scalars(
                 select(BroadcastDelivery)
@@ -197,46 +209,79 @@ async def send_broadcasts(sessions, bot: Bot) -> None:
                 .with_for_update(skip_locked=True)
             )
         )
+        claimed = [delivery.id for delivery in deliveries]
         for delivery in deliveries:
+            delivery.status, delivery.updated_at = "SENDING", current
+    for index, delivery_id in enumerate(claimed):
+        async with sessions() as db:
+            delivery = await db.get(BroadcastDelivery, delivery_id)
             broadcast = await db.get(Broadcast, delivery.broadcast_id)
             user = await db.get(User, delivery.user_id)
-            markup = None
-            if broadcast.button_text and broadcast.button_url:
-                markup = InlineKeyboardMarkup(
-                    inline_keyboard=[
-                        [InlineKeyboardButton(text=broadcast.button_text, url=broadcast.button_url)]
-                    ]
-                )
-            if user.is_blocked:
-                # Count it like any other outcome so the broadcast can still reach DONE.
-                delivery.status = "BLOCKED"
-                broadcast.blocked += 1
-            else:
-                try:
-                    if broadcast.image_file_id:
-                        await bot.send_photo(
-                            user.telegram_id,
-                            broadcast.image_file_id,
-                            caption=broadcast.text,
-                            reply_markup=markup,
-                        )
-                    else:
-                        await bot.send_message(
-                            user.telegram_id, broadcast.text, reply_markup=markup
-                        )
-                except TelegramForbiddenError:
-                    delivery.status = "BLOCKED"
-                    broadcast.blocked += 1
-                    user.is_blocked = True
-                except TelegramRetryAfter as error:
-                    await asyncio.sleep(min(error.retry_after, 30))
-                    break
-                except Exception:
-                    delivery.status = "FAILED"
-                    broadcast.failed += 1
+        markup = None
+        if broadcast.button_text and broadcast.button_url:
+            markup = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [InlineKeyboardButton(text=broadcast.button_text, url=broadcast.button_url)]
+                ]
+            )
+        result, block_user, retry_delay = "SENT", False, 0
+        if user.is_blocked:
+            result = "BLOCKED"
+        else:
+            try:
+                if broadcast.image_file_id:
+                    await bot.send_photo(
+                        user.telegram_id,
+                        broadcast.image_file_id,
+                        caption=broadcast.text,
+                        reply_markup=markup,
+                    )
                 else:
-                    delivery.status = "SENT"
-                    broadcast.sent += 1
-                await asyncio.sleep(0.06)
-            if broadcast.sent + broadcast.failed + broadcast.blocked >= broadcast.total:
-                broadcast.status = "DONE"
+                    await bot.send_message(user.telegram_id, broadcast.text, reply_markup=markup)
+            except TelegramForbiddenError:
+                result, block_user = "BLOCKED", True
+            except TelegramRetryAfter as error:
+                result, retry_delay = "PENDING", min(error.retry_after, 30)
+            except Exception:
+                result = "FAILED"
+        async with sessions.begin() as db:
+            if retry_delay:
+                # Hand this and every not-yet-sent claim back for a later run.
+                await db.execute(
+                    update(BroadcastDelivery)
+                    .where(
+                        BroadcastDelivery.id.in_(claimed[index:]),
+                        BroadcastDelivery.status == "SENDING",
+                    )
+                    .values(status="PENDING")
+                )
+            else:
+                delivery = await db.scalar(
+                    select(BroadcastDelivery)
+                    .where(BroadcastDelivery.id == delivery_id)
+                    .with_for_update()
+                )
+                if delivery.status == "SENDING":
+                    broadcast = await db.scalar(
+                        select(Broadcast)
+                        .where(Broadcast.id == delivery.broadcast_id)
+                        .with_for_update()
+                    )
+                    delivery.status = result
+                    if result == "SENT":
+                        broadcast.sent += 1
+                    elif result == "FAILED":
+                        broadcast.failed += 1
+                    else:
+                        broadcast.blocked += 1
+                    if block_user:
+                        await db.execute(
+                            update(User).where(User.id == user.id).values(is_blocked=True)
+                        )
+                    if broadcast.sent + broadcast.failed + broadcast.blocked >= broadcast.total:
+                        broadcast.status = "DONE"
+        if retry_delay:
+            await asyncio.sleep(retry_delay)
+            break
+        if result != "BLOCKED" or block_user:
+            await asyncio.sleep(0.06)

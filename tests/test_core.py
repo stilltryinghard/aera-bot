@@ -17,11 +17,13 @@ PRODUCTION = dict(
     payment_provider="telegram_stars",
     public_base_url="https://aera.example",
     telegram_webhook_secret="w" * 32,
+    database_url="postgresql+asyncpg://aera:secret@db/aera",
 )
 
 
 def make(**values):
-    return Settings(_env_file=None, database_url="sqlite+aiosqlite:///:memory:", **values)
+    values.setdefault("database_url", "sqlite+aiosqlite:///:memory:")
+    return Settings(_env_file=None, **values)
 
 
 # ---------- security ----------
@@ -83,6 +85,7 @@ def test_rejects_unsupported_settings(overrides):
         {"payment_provider": "mock"},
         {"public_base_url": "http://aera.example"},
         {"telegram_webhook_secret": "short"},
+        {"database_url": "sqlite+aiosqlite:///aera.db"},
     ],
 )
 def test_production_guard(overrides):
@@ -153,3 +156,26 @@ def test_render_brackets_ipv6_and_honours_overrides():
 def test_render_rejects_unsupported_configs(config):
     with pytest.raises(ProvisioningError):
         render("u", "n", config)
+
+
+# ---------- database engine ----------
+
+
+def test_postgres_engine_gets_lock_and_idle_timeouts():
+    from app.db.session import engine_options
+
+    options = engine_options(
+        make(database_url="postgresql+asyncpg://u@h/db", db_lock_timeout_ms=1500)
+    )
+    assert options["pool_pre_ping"] is True
+    assert options["connect_args"]["server_settings"] == {
+        "lock_timeout": "1500",
+        "idle_in_transaction_session_timeout": "60000",
+    }
+    assert "connect_args" not in engine_options(make())
+
+
+@pytest.mark.parametrize("field", ["db_lock_timeout_ms", "db_idle_in_transaction_timeout_ms"])
+def test_negative_database_timeouts_are_rejected(field):
+    with pytest.raises(ValidationError):
+        make(**{field: -1})

@@ -1,9 +1,24 @@
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.config import get_settings
+from app.config import Settings, get_settings
 
-engine = create_async_engine(get_settings().database_url, pool_pre_ping=True)
+
+def engine_options(settings: Settings) -> dict:
+    options = {"pool_pre_ping": True}
+    if settings.database_url.startswith("postgresql+asyncpg"):
+        options["connect_args"] = {
+            "server_settings": {
+                "lock_timeout": str(settings.db_lock_timeout_ms),
+                "idle_in_transaction_session_timeout": str(
+                    settings.db_idle_in_transaction_timeout_ms
+                ),
+            }
+        }
+    return options
+
+
+engine = create_async_engine(get_settings().database_url, **engine_options(get_settings()))
 
 if engine.dialect.name == "sqlite":
 
