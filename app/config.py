@@ -9,6 +9,10 @@ class Settings(BaseSettings):
     app_env: str = "development"
     app_secret: str = Field(default="development-only-change-before-production", repr=False)
     database_url: str = "postgresql+asyncpg://aera:aera@localhost:5432/aera"
+    # PostgreSQL only; 0 disables. Bounds how long a request waits on a row lock and how
+    # long an abandoned transaction may keep its locks.
+    db_lock_timeout_ms: int = Field(default=10000, ge=0)
+    db_idle_in_transaction_timeout_ms: int = Field(default=60000, ge=0)
     redis_url: str = "redis://localhost:6379/0"
     public_base_url: str = "http://localhost:8000"
     bot_token: str = Field(default="", repr=False)
@@ -58,7 +62,13 @@ class Settings(BaseSettings):
             raise ValueError("Unsupported payment provider")
         if self.card_provider not in {"mock", "yookassa", "freekassa"}:
             raise ValueError("Unsupported card provider")
-        if self.freekassa_enabled and (self.card_provider != "freekassa" or not self.freekassa_merchant_id.isdigit() or not self.freekassa_secret1 or not self.freekassa_secret2 or self.freekassa_secret1 == self.freekassa_secret2):
+        if self.freekassa_enabled and (
+            self.card_provider != "freekassa"
+            or not self.freekassa_merchant_id.isdigit()
+            or not self.freekassa_secret1
+            or not self.freekassa_secret2
+            or self.freekassa_secret1 == self.freekassa_secret2
+        ):
             raise ValueError("FreeKassa settings incomplete")
         if self.crypto_provider not in {"mock", "crypto_pay"}:
             raise ValueError("Unsupported crypto provider")
@@ -75,6 +85,9 @@ class Settings(BaseSettings):
                 raise ValueError("Mock integrations cannot run in production")
             if not self.public_base_url.startswith("https://"):
                 raise ValueError("Production requires HTTPS")
+            # SQLite ignores SELECT ... FOR UPDATE, which payment and stock handling rely on.
+            if not self.database_url.startswith("postgresql"):
+                raise ValueError("Production requires PostgreSQL")
             if len(self.telegram_webhook_secret) < 32:
                 raise ValueError("Production requires TELEGRAM_WEBHOOK_SECRET")
         return self
