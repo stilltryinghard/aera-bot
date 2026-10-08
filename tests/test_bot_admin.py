@@ -243,7 +243,7 @@ async def test_delete_busy_ticket_offers_retry(bot_driver, app_sessions):
     ticket_id = await support_ticket(app_sessions)
     async with app_sessions.begin() as db:
         message = await db.scalar(select(SupportMessage))
-        user = await db.scalar(select(User))
+        user = await db.scalar(select(User).where(User.telegram_id == 1))
         db.add(
             Notification(
                 dedupe_key=f"support:{message.id}",
