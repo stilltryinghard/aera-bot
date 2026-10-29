@@ -16,12 +16,20 @@ class GuardMiddleware(BaseMiddleware):
     def __init__(self):
         self.redis = Redis.from_url(get_settings().redis_url)
 
+    async def close(self, **kwargs):
+        await self.redis.aclose()
+
     async def __call__(self, handler, event, data):
         if not isinstance(event, (Message, CallbackQuery)) or not event.from_user:
             return await handler(event, data)
         # Payment receipts must never be dropped by rate limiting or maintenance.
         if isinstance(event, Message) and event.successful_payment:
             return await handler(event, data)
+        message = event.message if isinstance(event, CallbackQuery) else event
+        if not message or message.chat.type != "private":
+            if isinstance(event, CallbackQuery):
+                await event.answer("Откройте бота в личном чате.", show_alert=True)
+            return
         user_id = event.from_user.id
         try:
             key = f"bot-rate:{user_id}:{int(time.time()) // 60}"

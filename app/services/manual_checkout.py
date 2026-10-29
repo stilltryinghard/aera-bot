@@ -13,9 +13,12 @@ async def stars_payment(db, order_id, user):
     if (
         not ticket
         or ticket.user_id != user.id
-        or ticket.status not in {"OPEN", "IN_PROGRESS"}
         or order.paid_at
     ):
+        raise ValueError("Order unavailable")
+    from app.services.payment_timeout import require_open
+    await require_open(db, order)
+    if ticket.status not in {"OPEN", "IN_PROGRESS"}:
         raise ValueError("Order unavailable")
     if await setting(db, "manual_stars_enabled", "false") != "true":
         return None

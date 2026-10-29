@@ -1,7 +1,4 @@
-"""Disposable development runner: SQLite + fake Redis + mock XUI/payments.
-
-VPN provisioning remains isolated; the dedicated observer maintains only supplied trial keys.
-"""
+"""Local AERA stock runtime: real Stars/Platega, SQLite and bot FSM cache."""
 
 import asyncio
 import os
@@ -23,15 +20,15 @@ async def run() -> None:
     import uvicorn
 
     from app.db.session import sessions
-    from app.services.seed import seed
     from app.workers.run import main as run_worker
 
-    async with sessions.begin() as db:
-        await seed(db)
-        from app.config import get_settings
-        from scripts.bootstrap_portal import bootstrap
+    from sqlalchemy import select
+    from app.db.models import AppSetting, Plan
 
-        await bootstrap(db, get_settings())
+    async with sessions() as db:
+        enabled = await db.get(AppSetting, "paid_pool_enabled")
+        if not enabled or enabled.value != "true" or not await db.scalar(select(Plan.id).limit(1)):
+            raise RuntimeError("Configure the real stock portal before starting the runtime")
     config = uvicorn.Config("app.main:app", host="127.0.0.1", port=8000, access_log=False)
     server = uvicorn.Server(config)
     worker = asyncio.create_task(run_worker())
@@ -52,7 +49,7 @@ if __name__ == "__main__":
     command.upgrade(Config("alembic.ini"), "head")
     cache = TcpFakeServer(("127.0.0.1", 6389), server_type="redis")
     threading.Thread(target=cache.serve_forever, daemon=True).start()
-    print("AERA runtime: http://127.0.0.1:8000/docs (SQLite; Stars and trial-only key maintenance)")
+    print("AERA runtime: stock portal, Stars/Platega and recovery worker")
     try:
         asyncio.run(run())
     finally:

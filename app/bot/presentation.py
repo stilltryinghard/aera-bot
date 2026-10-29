@@ -1,17 +1,30 @@
 """Branded photo screens and customer-facing tariff formatting."""
 
-from html import escape
 from pathlib import Path
 
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import FSInputFile, InputMediaPhoto, Message
 
-from app.services.catalog import FAMILIES, family_of
 
 ASSETS = Path(__file__).resolve().parents[1] / "assets" / "ui"
 FILES = {
-    name: f"{name}-v1.png"
-    for name in ("welcome", "plans", "profile", "trial", "referral", "payments")
+    "welcome": "redesign-oct17/01-personal-account.png",
+    "plans": "redesign-oct17/03-aera-vpn.png",
+    "profile": "redesign-oct17/01-personal-account.png",
+    "trial": "redesign-oct17/03-aera-vpn.png",
+    "referral": "redesign-oct17/02-partner-program.png",
+    "payments": "redesign-oct17/04-payment.png",
+    "connect": "redesign-oct17/03-aera-vpn.png",
+    "support": "redesign-oct17/03-aera-vpn.png",
+    "payment_sbp": "redesign-oct17/04-payment.png",
+    "payment_card": "redesign-oct17/04-payment.png",
+    "payment_crypto": "redesign-oct17/04-payment.png",
+    "payment_stars": "redesign-oct17/04-payment.png",
+    "guide_ios": "editorial-oct16/guide_ios.png",
+    "guide_android": "editorial-oct16/guide_android.png",
+    "guide_windows": "editorial-oct16/guide_windows.png",
+    "guide_macos": "editorial-oct16/guide_macos.png",
+    "history": "redesign-oct17/01-personal-account.png",
 }
 _file_ids = {}
 
@@ -44,6 +57,12 @@ async def edit_screen(message, text, reply_markup=None, art=None):
             return await message.answer(text, parse_mode="HTML", reply_markup=reply_markup)
         if art and len(text) <= 1024:
             key, source = image_source(message, art)
+            if not message.photo:
+                result = await message.answer_photo(
+                    source, caption=text, parse_mode="HTML", reply_markup=reply_markup
+                )
+                remember(key, result)
+                return result
             if message.photo and isinstance(source, str) and message.photo[-1].file_id == source:
                 return await message.edit_caption(
                     caption=text, parse_mode="HTML", reply_markup=reply_markup
@@ -84,47 +103,3 @@ def period_label(plan):
 
 def price_label(plan):
     return f"{plan.price_minor} ⭐" if plan.currency == "XTR" else f"{plan.price_minor / 100:g} ₽"
-
-
-def plan_caption(plan):
-    return (
-        f"<b>{escape(plan.name)}</b>\n\n"
-        f"{devices_label(plan.device_limit, plan.unlimited_devices)}\n"
-        f"{traffic_label(plan.traffic_limit_bytes)}\n\n"
-        f"<b>{price_label(plan)} · {period_label(plan)}</b>\n\n"
-        "Продление - когда удобно.\nВыбери способ оплаты ниже."
-    )
-
-
-def catalog_caption(plans):
-    parts = ["<b>ТАРИФЫ 💰</b>\n"]
-    for family, (title, devices, *_rest) in FAMILIES.items():
-        items = sorted(
-            [p for p in plans if family_of(p) == family], key=lambda p: p.duration_months or 0
-        )
-        if items:
-            prices = " · ".join(f"{price_label(p)} / {period_label(p)}" for p in items)
-            parts.append(f"<b>{title}</b> - {devices}\n{prices}")
-    parts.append("БЕЗЛИМИТНЫЙ ТРАФИК НА ВСЕХ ТАРИФАХ 🚀🔥\nВыбери свой вариант")
-    return "\n\n".join(parts)
-
-
-def family_caption(family, plans):
-    title, devices, *_rest = FAMILIES[family]
-    lines = [f"<b>AERA {title}</b>\n\n{devices}\nБезлимитный трафик\n"]
-    for p in plans:
-        lines.append(f"<b>{period_label(p)}</b> - {price_label(p)}")
-    lines.append("\nВыбери срок подключения")
-    return "\n".join(lines)
-
-
-def subscription_caption(plan, sub, client, status):
-    traffic = traffic_label(sub.traffic_limit_bytes)
-    if sub.traffic_limit_bytes and client:
-        traffic += f" · использовано {client.traffic_used_bytes / 1024**3:.1f} ГБ"
-    return (
-        f"<b>Твоя AERA</b>\n\n{escape(plan.name)}\n{escape(status)}\n"
-        f"До {sub.expires_at:%d.%m.%Y}\n\n"
-        f"{devices_label(sub.device_limit, sub.unlimited_devices)}\n{traffic}\n\n"
-        "Подключи устройство или продли доступ ниже."
-    )

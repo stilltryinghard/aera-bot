@@ -184,9 +184,11 @@ async def action(call, state: FSMContext):
                     await db.scalars(select(PaidLink).where(PaidLink.plan_id == plan.id))
                 )
                 free = sum(r.status == "FREE" for r in records)
+                reserved = sum(r.status == "RESERVED" for r in records)
+                issued = sum(bool(r.issued_at) for r in records)
                 body += (
                     f"📦 {plan.name} · {plan.duration_months} мес.: "
-                    f"свободно {free} / всего {len(records)}\n"
+                    f"свободно {free} / всего {len(records)} · резерв {reserved} · выдано {issued}\n"
                 )
                 rows.append(
                     (
@@ -262,7 +264,7 @@ async def action(call, state: FSMContext):
                         ("BLOCKED", "⚙️ Выдано, отключено в панели"),
                     ]
                 )
-                + "\n\n⏱ Час без подключения или окончание двух дней: "
+                + "\n\n⏱ Час без подключения или окончание семи дней: "
                 "бот заменит только пробный ключ и вернёт запись в запас. "
                 "Проверка состояния раз в 30 секунд."
             )
@@ -356,3 +358,48 @@ async def action(call, state: FSMContext):
     await call.message.edit_text(
         body, parse_mode=None, reply_markup=keyboard(*rows, ("Пульт управления 🎛️", "ad:menu"))
     )
+
+
+@router.callback_query(F.data.startswith("ad:update:"))
+async def subscription_update_action(call, state: FSMContext):
+    if not authorized(call.from_user) or not call.message or call.message.chat.type != "private":
+        await call.answer("Нет доступа", show_alert=True)
+        return
+    await call.answer()
+    await state.clear()
+    from app.services import subscription_updates as updates
+    from aiogram.types import InlineKeyboardButton as B, InlineKeyboardMarkup as M
+    parts=call.data.split(":")
+    action=parts[2]
+    token=parts[3] if len(parts)==4 else None
+    try:
+        async with sessions.begin() as db:
+            if action in {"preview","new"}:
+                item=await updates.draft(db,call.from_user.id,new=action=="new")
+                token=item['token']
+                if item['status']=='DRAFT':
+                    count=len(await updates.recipients(db))
+                    body=await updates.message(db)+f"\n\nПолучателей сейчас: <b>{count}</b>\nОтправка начнётся только после подтверждения."
+                    markup=M(inline_keyboard=[
+                        [B(text="📨 Отправить подписчикам",callback_data=f"ad:update:send:{token}")],
+                        [B(text="Отмена",callback_data=f"ad:update:cancel:{token}")]])
+                else:
+                    body=await updates.progress(db,token)
+                    markup=keyboard(("📊 Проверить отправку",f"ad:update:status:{token}"),("🔔 Новое уведомление","ad:update:new"),("Пульт управления 🎛️","ad:menu"))
+            elif action=="cancel":
+                await updates.cancel(db,token,call.from_user.id,get_settings())
+                body="Уведомление отменено. Рассылка не запускалась."
+                markup=keyboard(("Пульт управления 🎛️","ad:menu"))
+            elif action in {"send","status"}:
+                if action=="send":await updates.publish(db,token,call.from_user.id,get_settings())
+                else:await updates.owned_draft(db,token,call.from_user.id,get_settings())
+                body=await updates.progress(db,token)
+                markup=keyboard(("📊 Проверить отправку",f"ad:update:status:{token}"),("🔔 Новое уведомление","ad:update:new"),("Пульт управления 🎛️","ad:menu"))
+            else:raise ValueError("Unknown action")
+        sent = await call.message.answer(body,parse_mode="HTML",reply_markup=markup)
+        if action in {"preview","new"} and item['status']=='DRAFT' and type(getattr(sent,"message_id",None)) is int:
+            from app.services.news_links import remember
+            async with sessions.begin() as db:
+                await remember(db,f"preview:{call.from_user.id}:{sent.message_id}",call.message.chat.id,sent.message_id,body,markup)
+    except ValueError:
+        await call.message.answer("Открой актуальное уведомление в /admin. Старое подтверждение недоступно.")

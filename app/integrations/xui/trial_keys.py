@@ -5,10 +5,9 @@ from datetime import UTC, datetime
 from urllib.parse import quote
 from uuid import UUID
 
+from app.core.trial_policy import DURATION_MS, SUPPORTED_DURATION_MS, TRIAL_IP_LIMIT
 from app.integrations.xui.exceptions import XUIError
 from app.integrations.xui.v328 import XUI328Client
-
-DURATION_MS = 2 * 86400000
 
 
 def replacement_email(identity):
@@ -71,7 +70,7 @@ class TrialKeyClient(XUI328Client):
         for c in (current, global_client):
             if (
                 int(c.get("totalGB", -1)) != 0
-                or int(c.get("limitIp", -1)) != 1
+                or int(c.get("limitIp", -1)) != TRIAL_IP_LIMIT
                 or int(c.get("reset", 0)) != 0
             ):
                 raise XUIError("Trial limits or renewal policy changed")
@@ -81,6 +80,25 @@ class TrialKeyClient(XUI328Client):
         if not isinstance(traffic, dict) or traffic.get("email") != current_email:
             raise XUIError("Trial traffic unavailable")
         return current, global_client, traffic
+
+    async def disable_converted_trial(self, old_uuid, new_uuid, email):
+        new_email = replacement_email(new_uuid)
+        current, record, traffic = await self.inspect_trial(old_uuid, new_uuid, email, new_email)
+        if record["uuid"] == new_uuid:
+            return  # Accepted-but-lost rotation: verify it, never reset a new key twice.
+        if current.get("enable") or record.get("enable") or traffic.get("enable", True):
+            payload = {k: v for k, v in record.items() if k not in {"id", "uuid", "createdAt", "updatedAt"}}
+            payload.update(id=old_uuid, enable=False)
+            if record.get("createdAt"):
+                payload["created_at"] = record["createdAt"]
+            self.rotation_route = "panel/api/clients/update/" + quote(record["email"], safe="") + f"?inboundIds={self.inbound_id}"
+            try:
+                await self.request("POST", self.rotation_route, payload)
+            finally:
+                self.rotation_route = None
+            current, record, traffic = await self.inspect_trial(old_uuid, new_uuid, email, new_email)
+        if any(c.get("enable", True) for c in (current, record, traffic)):
+            raise XUIError("Converted trial disable unverified")
 
     async def replace_trial_key(self, old_uuid, new_uuid, email, reason, issued_at, baseline_bytes):
         if old_uuid == new_uuid or any(str(UUID(i)) != i for i in (old_uuid, new_uuid)):
@@ -93,12 +111,17 @@ class TrialKeyClient(XUI328Client):
         if record["uuid"] == old_uuid:
             expiry = int(traffic.get("expiryTime") or record.get("expiryTime", 0))
             if reason in {"UNUSED", "IDLE"}:
-                if (expiry <= 0 and expiry != -DURATION_MS) or total != baseline_bytes:
+                if (
+                    expiry <= 0 and -expiry not in SUPPORTED_DURATION_MS
+                ) or total != baseline_bytes:
                     raise TrialStarted("Trial was used before rotation")
                 if reason == "IDLE" and expiry <= 0:
                     raise XUIError("Unused stock has no premature deadline")
                 if int(traffic.get("lastOnline", 0)) > int(issued_at.timestamp() * 1000):
                     raise TrialStarted("Trial was used before rotation")
+            elif reason == "PURCHASED":
+                if current.get("enable") or record.get("enable") or traffic.get("enable", True):
+                    raise XUIError("Purchased trial was not disabled before rotation")
             elif reason == "EXPIRED":
                 if expiry <= 0 or expiry > int(datetime.now(UTC).timestamp() * 1000):
                     raise TrialStarted("Trial expiry changed before rotation")
@@ -106,10 +129,23 @@ class TrialKeyClient(XUI328Client):
                 raise XUIError("Unsupported trial rotation")
         elif record.get("subId") != new_uuid.replace("-", ""):
             raise XUIError("Pending replacement does not match")
+        legacy_pending = (
+            record["uuid"] == new_uuid
+            and -int(record.get("expiryTime", 0)) in SUPPORTED_DURATION_MS
+            and int(record.get("expiryTime", 0)) != -DURATION_MS
+        )
+        if legacy_pending and (
+            int(current.get("expiryTime", 0)) != int(record.get("expiryTime", 0))
+            or int(traffic.get("expiryTime", 0)) != int(record.get("expiryTime", 0))
+            or total != baseline_bytes
+            or int(traffic.get("lastOnline", 0)) > int(issued_at.timestamp() * 1000)
+        ):
+            raise TrialStarted("Pending trial was used before upgrade")
         if (
             record["uuid"] == old_uuid
             or record.get("email") != new_email
             or current.get("email") != new_email
+            or legacy_pending
         ):
             # The global record contains a numeric database id and a separate UUID.
             # The update API instead accepts a Client with its UUID in id.

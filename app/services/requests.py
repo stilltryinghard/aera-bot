@@ -33,6 +33,8 @@ async def select_tariff(
     plan = await db.get(Plan, plan_id)
     if not plan or not plan.is_active or plan.price_minor > 1000000 or user.is_blocked or not user.is_active:
         raise ValueError("Tariff selection unavailable")
+    from app.services.payment_timeout import expire_open_orders
+    await expire_open_orders(db, user_id=user.id)
     subject = f"{plan.name} · {period_label(plan)} · {price_label(plan)}"[:256]
     # The preceding user upsert holds this user's write lock until commit (also on SQLite).
     # Reuse the open selection so repeated clicks do not notify the owner repeatedly.
@@ -65,8 +67,8 @@ async def select_tariff(
             f"Telegram ID: {user.telegram_id}\n\n"
             f"Тариф: {plan.name}\nСрок: {period_label(plan)}\nЦена: {price_label(plan)}\n"
             f"{devices_label(plan.device_limit, plan.unlimited_devices)}\n"
-            f"{traffic_label(plan.traffic_limit_bytes)}\nКлиент: Hiddify\n\n"
-            "Нужны личное сопровождение, согласование оплаты и подключение."
+            f"{traffic_label(plan.traffic_limit_bytes)}\nКлиент: INCY / Happ\n\n"
+            "Выбор подписки для прямой оплаты и автоматической выдачи."
         )
         db.add(
             SupportMessage(

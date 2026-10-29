@@ -32,7 +32,7 @@ async def ensure_order(db, ticket, plan):
     order = await db.scalar(select(SaleOrder).where(SaleOrder.ticket_id == ticket.id))
     if order:
         return order
-    percent = discount_percent(plan.price_minor)
+    percent = 0 if plan.slug.startswith("devices-") else discount_percent(plan.price_minor)
     coupon = (
         await db.scalar(
             select(ReferralCoupon)
@@ -68,30 +68,36 @@ async def confirm_order(db, order, settings):
     if order.coupon_id:
         coupon = await db.get(ReferralCoupon, order.coupon_id)
         coupon.status = "USED"
-    # One reward per invited friend, after a confirmed payment of at least 500 RUB.
-    referral = await db.scalar(
-        select(Referral)
-        .where(Referral.referred_user_id == ticket.user_id, Referral.status == "PENDING")
-        .with_for_update()
-    )
-    if referral and order.amount_rub_minor >= 50000:
-        referral.status, referral.rewarded_at = "COUPON", datetime.now(UTC)
-        referral.reward_type = "NEXT_PURCHASE_DISCOUNT"
-        db.add(ReferralCoupon(user_id=referral.referrer_user_id, referral_id=referral.id))
-        from app.bot.texts.portal import text
-
-        referrer = await db.get(User, referral.referrer_user_id)
-        await enqueue(
-            db,
-            f"coupon:{referral.id}",
-            referral.referrer_user_id,
-            "PORTAL",
-            text("coupon_notice", referrer.language_code),
-        )
+    from app.services.affiliates import accrue_first
+    await accrue_first(db, order, settings)
     user = await db.get(User, ticket.user_id)
     from app.services.paid_pool import fulfill
 
     automatic = await fulfill(db, order, settings)
+    from app.services.renewals import intent
+
+    renewal = await intent(db, order)
+    if renewal:
+        await enqueue(
+            db,
+            "renewal-payment:" + order.id,
+            user.id,
+            "PORTAL",
+            "Оплата продления подтверждена. Обновляем срок вашей подписки; ссылка останется прежней."
+            if user.language_code == "ru"
+            else "Renewal payment confirmed. Updating your expiry; your link will stay the same.",
+        )
+        for admin_id in settings.admin_ids:
+            admin = await db.scalar(select(User).where(User.telegram_id == admin_id))
+            if admin:
+                await enqueue(
+                    db,
+                    f"sale-paid:{order.id}:{admin_id}",
+                    admin.id,
+                    "PORTAL",
+                    f"Оплачено продление подписки. Клиент ID {user.telegram_id}. Срок обновится после проверки панели.",
+                )
+        return
     for admin_id in settings.admin_ids:
         admin = await db.scalar(select(User).where(User.telegram_id == admin_id))
         if admin:
@@ -181,5 +187,6 @@ async def confirm_stars(db, payment, charge_id, settings):
     if payment.status == "PAID" and payment.provider_payment_id != charge_id:
         raise ValueError("Charge mismatch")
     payment.provider_payment_id = charge_id
-    payment.status, payment.paid_at = "PAID", datetime.now(UTC)
+    if payment.status != "PAID":
+        payment.status, payment.paid_at = "PAID", datetime.now(UTC)
     await confirm_order(db, order, settings)

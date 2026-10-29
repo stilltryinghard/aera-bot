@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import PaymentError
-from app.db.models import Payment, Plan, PromoCode, PromoUse
+from app.db.models import Plan, PromoCode, PromoUse
 from app.services.commerce import utc
 
 
@@ -24,15 +24,8 @@ async def reserve_promo(
         or (promo.plan_id and promo.plan_id != plan.id)
     ):
         raise PaymentError("Promo unavailable")
-    # Only paid uses count: an abandoned checkout must not burn the code.
     if promo.one_use_per_user and await db.scalar(
-        select(PromoUse.id)
-        .join(Payment, Payment.id == PromoUse.payment_id)
-        .where(
-            PromoUse.user_id == user_id,
-            PromoUse.promo_id == promo.id,
-            Payment.status == "PAID",
-        )
+        select(PromoUse.id).where(PromoUse.user_id == user_id, PromoUse.promo_id == promo.id)
     ):
         raise PaymentError("Promo already used")
     price, extra_days = plan.price_minor, 0
@@ -46,5 +39,5 @@ async def reserve_promo(
         raise PaymentError("Unsupported promo type")
     if price <= 0:
         raise PaymentError("Zero-price payment is not supported; use trial or extra days")
-    # uses is incremented by CommerceService.confirm once the payment is applied.
+    promo.uses += 1
     return promo, price, extra_days

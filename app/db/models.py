@@ -294,6 +294,14 @@ class TrialUsage(Base):
     activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class FamilyAccess(Record, Base):
+    __tablename__ = "family_access"
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), unique=True)
+    device_limit: Mapped[int] = mapped_column(Integer, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    link_encrypted: Mapped[str | None] = mapped_column(Text)
+
+
 class ManualAccess(Record, Base):
     __tablename__ = "manual_access"
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), unique=True)
@@ -337,3 +345,79 @@ class PaidLink(Record, Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ReferralSoloReward(Record, Base):
+    __tablename__ = "referral_solo_rewards"
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), unique=True)
+    referral_ids: Mapped[list] = mapped_column(JSON)
+    order_id: Mapped[str | None] = mapped_column(ForeignKey("sale_orders.id"), unique=True)
+    status: Mapped[str] = mapped_column(String(32), default="PENDING")
+    issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AccessRenewal(Record, Base):
+    __tablename__ = "access_renewals"
+    order_id: Mapped[str] = mapped_column(ForeignKey("sale_orders.id"), unique=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    access_kind: Mapped[str] = mapped_column(String(16))
+    access_id: Mapped[str] = mapped_column(String(36))
+    duration_days: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(24), default="CHECKOUT")
+    client_uuid: Mapped[str | None] = mapped_column(String(36))
+    panel_email: Mapped[str | None] = mapped_column(String(128))
+    original_expiry_ms: Mapped[int | None] = mapped_column(BigInteger)
+    target_expiry_ms: Mapped[int | None] = mapped_column(BigInteger)
+    fingerprint: Mapped[dict | None] = mapped_column(JSON)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AffiliateCommission(Record, Base):
+    __tablename__ = "affiliate_commissions"
+    __table_args__ = (CheckConstraint("amount_minor >= 0 AND purchase_minor > 0"),)
+    referred_user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), unique=True)
+    referrer_user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    order_id: Mapped[str] = mapped_column(ForeignKey("sale_orders.id"), unique=True)
+    purchase_minor: Mapped[int] = mapped_column(Integer)
+    amount_minor: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(32), default="CONFIRMED")
+
+
+class AffiliateWithdrawal(Record, Base):
+    __tablename__ = "affiliate_withdrawals"
+    __table_args__ = (CheckConstraint("amount_minor >= 100000"),)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    amount_minor: Mapped[int] = mapped_column(Integer)
+    details_encrypted: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), default="PENDING")
+    decided_by: Mapped[int | None] = mapped_column(BigInteger)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    receipt_reference: Mapped[str | None] = mapped_column(String(128))
+
+
+class DeviceBinding(Record, Base):
+    __tablename__ = "device_bindings"
+    __table_args__ = (UniqueConstraint("parent_uuid", "device_hash"),)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    paid_link_id: Mapped[str | None] = mapped_column(ForeignKey("paid_links.id"))
+    trial_link_id: Mapped[str | None] = mapped_column(ForeignKey("trial_links.id"))
+    parent_uuid: Mapped[str] = mapped_column(String(36))
+    device_hash: Mapped[str] = mapped_column(String(64))
+    client_uuid: Mapped[str] = mapped_column(String(36), unique=True)
+    label: Mapped[str] = mapped_column(String(128), default="AERA device")
+    platform: Mapped[str] = mapped_column(String(32), default="")
+    device_model: Mapped[str] = mapped_column(String(64), default="")
+    link_encrypted: Mapped[str] = mapped_column(Text)
+    bundle_encrypted: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), default="PENDING")
+    duration_ms: Mapped[int] = mapped_column(BigInteger)
+    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class DeviceSubscription(Base):
+    __tablename__ = "device_subscriptions"
+    parent_uuid: Mapped[str] = mapped_column(String(36), primary_key=True)
+    public_uuid: Mapped[str] = mapped_column(String(36), unique=True)

@@ -1,0 +1,2 @@
+# Preserve exact production bytes for SOURCE_SHA256 verification.
+* -text

@@ -1,79 +1,116 @@
+"""Independent recovery jobs for real payments, inventory and queued delivery."""
+
 import asyncio
 import logging
-
+import time
+from app.bot.client import create_bot
 from app.config import get_settings
 from app.core.security import TokenVault
 from app.db.session import engine, sessions
-from app.integrations.xui.factory import create_adapter
-from app.services.provisioning import ProvisioningService
+from app.services.notifications import send_broadcasts, send_notifications
+from app.services.paid_pool import retry_fulfillment
+from app.services.platega import poll
+from app.services.affiliates import reconcile_reversals
+from app.services.renewals import process_pending
+from app.services.stock_v2 import replenish
+from app.services.trial_stock import replenish_trials
+from app.services.device_access import provision as device_provision
+from app.services.trial_pool import synchronize
+from app.services.analytics_report import capture_stock
+from app.services.payment_timeout import expire_open_orders
+from app.services.trial_upgrade import process_pending as upgrade_trials
+
+log = logging.getLogger("aera")
+
+
+async def run_job(name, operation):
+    try:
+        await operation
+    except Exception as error:
+        log.error("%s_failed type=%s", name, type(error).__name__)
+
+
+async def in_transaction(operation, settings):
+    async with sessions.begin() as db:
+        await operation(db, settings)
+
+
+async def run_periodic(jobs, tick=5):
+    running, due = {}, {}
+    try:
+        while True:
+            now = time.monotonic()
+            for name, interval, operation in jobs:
+                task = running.get(name)
+                if now >= due.get(name, 0) and (task is None or task.done()):
+                    due[name] = now + interval
+                    running[name] = asyncio.create_task(run_job(name, operation()))
+            await asyncio.sleep(tick)
+    finally:
+        for task in running.values():
+            task.cancel()
+        await asyncio.gather(*running.values(), return_exceptions=True)
 
 
 async def main() -> None:
     settings = get_settings()
-    from app.bot.client import create_bot
-    from app.services.notifications import schedule_expiry, send_broadcasts, send_notifications
-
-    adapter = create_adapter(sessions, settings)
-    service = ProvisioningService(sessions, adapter, TokenVault(settings.app_secret))
-    from datetime import UTC, datetime, timedelta
-
-    from app.services.checkout import CheckoutService
-
-    checkout = CheckoutService(sessions, settings, TokenVault(settings.app_secret))
-    next_poll = datetime.now(UTC)
+    if not settings.manual_sales:
+        raise RuntimeError("This worker serves the current stock portal")
+    vault = TokenVault(settings.app_secret)
     bot = create_bot(settings) if settings.bot_token else None
+    jobs = [
+        ("trial_paid_upgrade", 5, lambda: upgrade_trials(sessions, settings)),
+        ("checkout_timeout", 15, lambda: in_transaction(expire_open_orders, settings)),
+        ("analytics_stock", 300, lambda: in_transaction(capture_stock, settings)),
+        ("v2_stock", 30, lambda: replenish(sessions, settings, target=5)),
+        ("trial_stock", 30, lambda: replenish_trials(sessions, settings)),
+        ("device_keys", 20, lambda: device_provision(sessions, settings)),
+        ("trial_observer", 30, lambda: synchronize(sessions, vault, settings)),
+        ("platega_poll", 30, lambda: poll(sessions, settings)),
+        ("paid_fulfillment", 30, lambda: in_transaction(retry_fulfillment, settings)),
+        ("renewal_worker", 30, lambda: process_pending(sessions, settings)),
+        ("referral_worker", 30, lambda: in_transaction(reconcile_reversals, settings)),
+    ]
+    if bot:
+        from app.services.news_links import reconcile as sync_news, edit_tracked
+        from app.services.trial_reminders import queue_reminders
+        from app.services.trial_expiry import queue_expiry_notices
+        from app.services.paid_expiry import queue_expiry_notices as queue_paid_expiry
+        jobs += [
+            ("news_channel_pointer", 60, lambda: sync_news(sessions, bot)),
+            ("news_notice_links", 5, lambda: edit_tracked(sessions, bot)),
+            ("trial_help_reminder", 30, lambda: queue_reminders(sessions, settings)),
+            ("trial_expiry_notice", 30, lambda: queue_expiry_notices(sessions)),
+            ("paid_expiry_notice", 30, lambda: queue_paid_expiry(sessions, settings)),
+            (
+                "notification_delivery",
+                5,
+                lambda: send_notifications(
+                    sessions,
+                    bot,
+                    allowed_types={
+                        "SUPPORT",
+                        "SUPPORT_ADMIN",
+                        "PORTAL",
+                        "TRIAL_ACTIVE",
+                        "ACCESS_READY",
+                        "SUBSCRIPTION_UPDATE",
+                        "TRIAL_REMINDER",
+                        "TRIAL_EXPIRY",
+                        "PAID_EXPIRY",
+                    },
+                ),
+            ),
+            ("broadcast_delivery", 5, lambda: send_broadcasts(sessions, bot)),
+        ]
     try:
-        while True:
-            try:
-                if settings.manual_sales and datetime.now(UTC) >= next_poll:
-                    next_poll = datetime.now(UTC) + timedelta(seconds=30)
-                    try:
-                        from app.services.trial_pool import synchronize
-
-                        await synchronize(sessions, TokenVault(settings.app_secret), settings)
-                    except Exception as error:
-                        logging.getLogger("aera").error(
-                            "trial_observer_failed type=%s", type(error).__name__
-                        )
-                    from app.services.manual_bank import poll
-
-                    await poll(sessions, settings)
-                    from app.services.paid_pool import retry_fulfillment
-
-                    async with sessions.begin() as db:
-                        await retry_fulfillment(db, settings)
-                if not settings.manual_sales and datetime.now(UTC) >= next_poll:
-                    await checkout.poll()
-                    next_poll = datetime.now(UTC) + timedelta(seconds=30)
-                if not settings.manual_sales:
-                    await service.tick()
-                    async with sessions.begin() as db:
-                        await schedule_expiry(db)
-                if bot:
-                    await send_notifications(
-                        sessions,
-                        bot,
-                        allowed_types={
-                            "SUPPORT",
-                            "SUPPORT_ADMIN",
-                            "PORTAL",
-                            "TRIAL_ACTIVE",
-                            "ACCESS_READY",
-                        }
-                        if settings.manual_sales
-                        else None,
-                    )
-                    await send_broadcasts(sessions, bot)
-            except Exception as error:
-                logging.getLogger("aera").error("worker_tick_failed type=%s", type(error).__name__)
-            await asyncio.sleep(5)
+        await run_periodic(jobs)
     finally:
         if bot:
             await bot.session.close()
-        if hasattr(adapter, "close"):
-            await adapter.close()
         await engine.dispose()
 
 
 if __name__ == "__main__":
     asyncio.run(main())
+

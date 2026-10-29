@@ -1,0 +1,14 @@
+{
+  "checked_at_utc": "2026-10-26T05:48:23.413369+00:00",
+  "python": "3.12.3",
+  "files_checked": 226,
+  "mismatched_files": [],
+  "services": {
+    "aera-preview-bot": "active",
+    "aera-preview-runtime": "active",
+    "aera-node-sync": "active",
+    "aera-site": "active",
+    "aera-support": "active"
+  },
+  "ready": 200
+}

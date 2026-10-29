@@ -1,0 +1,763 @@
+F....F...............F.FFF.FFF..........FFFFFFF.FFFFFFF...FFFFF..FFFFFFF [ 31%]
+F..................................................F..........F.....F... [ 63%]
+...................FFFFFFFFF..FF...F.F.................................. [ 94%]
+............                                                             [100%]
+=================================== ERRORS ====================================
+_____________________ ERROR collecting tests/test_api.py ______________________
+ImportError while importing test module 'REPOSITORY\tests\test_api.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+C:\Users\safin\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_api.py:12: in <module>
+    from app.api import checkout_api, external_payments
+E   ImportError: cannot import name 'checkout_api' from 'app.api' (REPOSITORY\app\api\__init__.py)
+__________________ ERROR collecting tests/test_bot_legacy.py __________________
+tests\test_bot_legacy.py:134: in <module>
+    ("onboarding", ru.ONBOARDING),
+                   ^^^^^^^^^^^^^
+E   AttributeError: module 'app.bot.texts.ru' has no attribute 'ONBOARDING'
+___________________ ERROR collecting tests/test_bot_misc.py ___________________
+ImportError while importing test module 'REPOSITORY\tests\test_bot_misc.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+C:\Users\safin\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_bot_misc.py:13: in <module>
+    from app.bot import installers, presentation, web_login
+E   ImportError: cannot import name 'installers' from 'app.bot' (REPOSITORY\app\bot\__init__.py)
+_________________ ERROR collecting tests/test_manual_sales.py _________________
+ImportError while importing test module 'REPOSITORY\tests\test_manual_sales.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+C:\Users\safin\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_manual_sales.py:24: in <module>
+    from app.integrations.payments.freekassa import FreeKassaProvider, digest
+E   ModuleNotFoundError: No module named 'app.integrations.payments.freekassa'
+_____________ ERROR collecting tests/test_notifications_admin.py ______________
+ImportError while importing test module 'REPOSITORY\tests\test_notifications_admin.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+C:\Users\safin\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_notifications_admin.py:40: in <module>
+    from app.services.notifications import (
+E   ImportError: cannot import name 'schedule_expiry' from 'app.services.notifications' (REPOSITORY\app\services\notifications.py)
+_______________ ERROR collecting tests/test_payment_adapters.py _______________
+ImportError while importing test module 'REPOSITORY\tests\test_payment_adapters.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+C:\Users\safin\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_payment_adapters.py:14: in <module>
+    from app.integrations.payments.freekassa import FreeKassaProvider, digest
+E   ModuleNotFoundError: No module named 'app.integrations.payments.freekassa'
+_______________ ERROR collecting tests/test_payment_polling.py ________________
+ImportError while importing test module 'REPOSITORY\tests\test_payment_polling.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+C:\Users\safin\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_payment_polling.py:8: in <module>
+    from app.services import manual_bank
+E   ImportError: cannot import name 'manual_bank' from 'app.services' (REPOSITORY\app\services\__init__.py)
+____________________ ERROR collecting tests/test_worker.py ____________________
+ImportError while importing test module 'REPOSITORY\tests\test_worker.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+C:\Users\safin\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_worker.py:4: in <module>
+    from app.services import (
+E   ImportError: cannot import name 'manual_bank' from 'app.services' (REPOSITORY\app\services\__init__.py)
+================================== FAILURES ===================================
+______________________ test_admin_command_requires_admin ______________________
+tests\test_bot_admin.py:45: in test_admin_command_requires_admin
+    assert "ПРОБНЫЕ ПОДПИСКИ" in bot_driver.api.last_text()
+E   AssertionError: assert 'ПРОБНЫЕ ПОДПИСКИ' in 'Управление AERA\n\n👥 Пользователей бота: 0\n💎 С действующим платным доступом: 0\n\n🎁 Остаток пробных ссылок: 0\n🔗 Остаток платных ссылок: 0\n⏳ В резерве: 0'
+E    +  where 'Управление AERA\n\n👥 Пользователей бота: 0\n💎 С действующим платным доступом: 0\n\n🎁 Остаток пробных ссылок: 0\n🔗 Остаток платных ссылок: 0\n⏳ В резерве: 0' = last_text()
+E    +    where last_text = <bot_harness.RecordingSession object at 0x00000272B9F73BC0>.last_text
+E    +      where <bot_harness.RecordingSession object at 0x00000272B9F73BC0> = <bot_harness.Driver object at 0x00000272BA195760>.api
+__________________________ test_users_list_and_card ___________________________
+tests\test_bot_admin.py:141: in test_users_list_and_card
+    assert f"ad:user:{user_id}" in bot_driver.api.buttons().values()
+E   AssertionError: assert 'ad:user:bab16ad1-eff5-4616-9e61-4f567326b607' in dict_values(['ad:users:0', 'ad:menu'])
+E    +  where dict_values(['ad:users:0', 'ad:menu']) = <built-in method values of dict object at 0x00000272BA4BB600>()
+E    +    where <built-in method values of dict object at 0x00000272BA4BB600> = {'🔄 Обновить': 'ad:users:0', 'Назад': 'ad:menu'}.values
+E    +      where {'🔄 Обновить': 'ad:users:0', 'Назад': 'ad:menu'} = buttons()
+E    +        where buttons = <bot_harness.RecordingSession object at 0x00000272BA378B00>.buttons
+E    +          where <bot_harness.RecordingSession object at 0x00000272BA378B00> = <bot_harness.Driver object at 0x00000272B9F3F740>.api
+_________________ test_pre_checkout_accepts_matching_invoice __________________
+tests\test_bot_payments.py:80: in test_pre_checkout_accepts_matching_invoice
+    assert await answers(bot_driver) == [(True, None)]
+E   AssertionError: assert [(False, 'Не ...ько секунд.')] == [(True, None)]
+E
+E     At index 0 diff: (False, 'Не удалось выполнить действие.\n\nПопробуйте ещё раз через несколько секунд.') != (True, None)
+E     Use -v to get more diff
+___________ test_pre_checkout_reserves_paid_stock_for_manual_order ____________
+tests\test_bot_payments.py:114: in test_pre_checkout_reserves_paid_stock_for_manual_order
+    assert (await answers(bot_driver))[-1][0] is True
+E   assert False is True
+_______________ test_successful_payment_activates_subscription ________________
+tests\test_bot_payments.py:124: in test_successful_payment_activates_subscription
+    await bot_driver.feed(receipt(1, payment_id))
+tests\bot_harness.py:122: in feed
+    return await self.dp.feed_update(self.bot, update)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\dispatcher.py:164: in feed_update
+    response = await self.update.wrap_outer_middleware(
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\middlewares\error.py:27: in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\middlewares\user_context.py:58: in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\fsm\middleware.py:43: in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\event\telegram.py:126: in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\event\handler.py:71: in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\dispatcher.py:284: in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\router.py:172: in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\bot\middleware.py:27: in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\router.py:164: in _wrapped
+    return await self._propagate_event(
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\router.py:200: in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\router.py:172: in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\router.py:164: in _wrapped
+    return await self._propagate_event(
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\router.py:192: in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\event\telegram.py:126: in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\event\handler.py:71: in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+app\bot\payments.py:77: in successful_payment
+    payment = await validate_invoice(
+app\bot\payments.py:31: in validate_invoice
+    raise ValueError("Manual order missing")
+E   ValueError: Manual order missing
+------------------------------ Captured log call ------------------------------
+ERROR    aera:payments.py:121 stars_receipt_failed type=ValueError
+____________ test_successful_payment_for_manual_order_issues_link _____________
+tests\test_bot_payments.py:150: in test_successful_payment_for_manual_order_issues_link
+    await bot_driver.feed(receipt(1, payment_id))
+tests\bot_harness.py:122: in feed
+    return await self.dp.feed_update(self.bot, update)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\dispatcher.py:164: in feed_update
+    response = await self.update.wrap_outer_middleware(
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\middlewares\error.py:27: in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\middlewares\user_context.py:58: in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\fsm\middleware.py:43: in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\event\telegram.py:126: in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\event\handler.py:71: in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\dispatcher.py:284: in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\router.py:172: in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\bot\middleware.py:27: in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\router.py:164: in _wrapped
+    return await self._propagate_event(
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\router.py:200: in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\router.py:172: in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\router.py:164: in _wrapped
+    return await self._propagate_event(
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\router.py:192: in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\event\telegram.py:126: in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\event\handler.py:71: in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+app\bot\payments.py:92: in successful_payment
+    await confirm_stars(db, payment, receipt.telegram_payment_charge_id, settings)
+app\services\portal.py:192: in confirm_stars
+    await confirm_order(db, order, settings)
+app\services\portal.py:76: in confirm_order
+    automatic = await fulfill(db, order, settings)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\services\paid_pool.py:133: in fulfill
+    from app.services.trial_upgrade import prepare, restore_previous_device
+app\services\trial_upgrade.py:3: in <module>
+    import fcntl
+E   ModuleNotFoundError: No module named 'fcntl'
+------------------------------ Captured log call ------------------------------
+ERROR    aera:payments.py:121 stars_receipt_failed type=ModuleNotFoundError
+______________________ test_receipt_bypasses_maintenance ______________________
+tests\test_bot_payments.py:176: in test_receipt_bypasses_maintenance
+    await bot_driver.feed(receipt(1, payment_id))
+tests\bot_harness.py:122: in feed
+    return await self.dp.feed_update(self.bot, update)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\dispatcher.py:164: in feed_update
+    response = await self.update.wrap_outer_middleware(
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\middlewares\error.py:27: in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\middlewares\user_context.py:58: in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\fsm\middleware.py:43: in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\event\telegram.py:126: in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\event\handler.py:71: in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\dispatcher.py:284: in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\router.py:172: in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\bot\middleware.py:27: in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\router.py:164: in _wrapped
+    return await self._propagate_event(
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\router.py:200: in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\router.py:172: in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\router.py:164: in _wrapped
+    return await self._propagate_event(
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\router.py:192: in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\event\telegram.py:126: in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\aiogram\dispatcher\event\handler.py:71: in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+app\bot\payments.py:77: in successful_payment
+    payment = await validate_invoice(
+app\bot\payments.py:31: in validate_invoice
+    raise ValueError("Manual order missing")
+E   ValueError: Manual order missing
+------------------------------ Captured log call ------------------------------
+ERROR    aera:payments.py:121 stars_receipt_failed type=ValueError
+_________ test_start_registers_user_with_referral_and_shows_languages _________
+tests\test_bot_portal.py:90: in test_start_registers_user_with_referral_and_shows_languages
+    assert photo.caption == tr("language", "ru")
+E   AssertionError: assert '<b>👤 Профиль...</blockquote>' == '🌐 Выберите я...ا انتخاب کنید'
+E
+E     - 🌐 Выберите язык / Choose your language
+E     - 选择语言 / زبان خود را انتخاب کنید
+E     + <b>👤 Профиль</b>
+E     + <blockquote><code>├ Имя:       User1
+E     + ├ ID:        1
+E     + ├ Баланс:    0 ₽...
+E
+E     ...Full output truncated (5 lines hidden), use '-vv' to show
+___________________________ test_language_selection ___________________________
+tests\test_bot_portal.py:100: in test_language_selection
+    assert bot_driver.api.last_text() == tr("welcome", "en")
+E   AssertionError: assert '<b>👤 Профиль...</blockquote>' == '💎 <b>AERA VP...iption below.'
+E
+E     - 💎 <b>AERA VPN</b>
+E     -
+E     - Connect and manage your subscription below.
+E     + <b>👤 Профиль</b>
+E     + <blockquote><code>├ Имя:       User1
+E     + ├ ID:        1...
+E
+E     ...Full output truncated (6 lines hidden), use '-vv' to show
+__________________________ test_platform_guides[ios] __________________________
+tests\test_bot_portal.py:132: in test_platform_guides
+    assert bot_driver.api.last_text() == tr(platform, "ru")
+E   AssertionError: assert '<b>💡 Инструкции AERA</b>' == '<b>📲 INCY и ...@aerasuppbot.'
+E
+E     + <b>💡 Инструкции AERA</b>
+E     - <b>📲 INCY и Happ для iPhone / iPad</b>
+E     -
+E     - 1. Установи INCY или Happ по кнопке ниже.
+E     - 2. Скопируй личную HTTPS-ссылку из кабинета AERA.
+E     - 3. В приложении нажми «+» и добавь ссылку из буфера обмена....
+E
+E     ...Full output truncated (3 lines hidden), use '-vv' to show
+________________________ test_platform_guides[android] ________________________
+tests\test_bot_portal.py:132: in test_platform_guides
+    assert bot_driver.api.last_text() == tr(platform, "ru")
+E   AssertionError: assert '<b>💡 Инструкции AERA</b>' == '<b>📲 INCY и ...@aerasuppbot.'
+E
+E     + <b>💡 Инструкции AERA</b>
+E     - <b>📲 INCY и Happ для Android</b>
+E     -
+E     - 1. Установи INCY или Happ по кнопке ниже.
+E     - 2. Скопируй личную HTTPS-ссылку из кабинета AERA.
+E     - 3. В приложении нажми «+» и добавь ссылку из буфера обмена....
+E
+E     ...Full output truncated (3 lines hidden), use '-vv' to show
+________________________ test_platform_guides[windows] ________________________
+tests\test_bot_portal.py:132: in test_platform_guides
+    assert bot_driver.api.last_text() == tr(platform, "ru")
+E   AssertionError: assert '<b>💡 Инструкции AERA</b>' == '<b>📲 INCY и ...@aerasuppbot.'
+E
+E     + <b>💡 Инструкции AERA</b>
+E     - <b>📲 INCY и Happ для Windows</b>
+E     -
+E     - 1. Установи INCY или Happ по кнопке ниже.
+E     - 2. Скопируй личную HTTPS-ссылку из кабинета AERA.
+E     - 3. В приложении нажми «+» и добавь ссылку из буфера обмена....
+E
+E     ...Full output truncated (3 lines hidden), use '-vv' to show
+_________________________ test_platform_guides[macos] _________________________
+tests\test_bot_portal.py:132: in test_platform_guides
+    assert bot_driver.api.last_text() == tr(platform, "ru")
+E   AssertionError: assert '<b>💡 Инструкции AERA</b>' == '<b>📲 INCY и ...@aerasuppbot.'
+E
+E     + <b>💡 Инструкции AERA</b>
+E     - <b>📲 INCY и Happ для macOS</b>
+E     -
+E     - 1. Установи INCY или Happ по кнопке ниже.
+E     - 2. Скопируй личную HTTPS-ссылку из кабинета AERA.
+E     - 3. В приложении нажми «+» и добавь ссылку из буфера обмена....
+E
+E     ...Full output truncated (3 lines hidden), use '-vv' to show
+_________________ test_invalid_actions_show_error[privacy:7] __________________
+tests\test_bot_portal.py:139: in test_invalid_actions_show_error
+    assert bot_driver.api.last_text() == tr("error", "ru")
+E   AssertionError: assert '<b>👤 Профиль...</blockquote>' == '⚙️ Не получи...в поддержку 💊'
+E
+E     - ⚙️ Не получилось выполнить действие. Попробуй ещё раз или напиши в поддержку 💊
+E     + <b>👤 Профиль</b>
+E     + <blockquote><code>├ Имя:       User1
+E     + ├ ID:        1
+E     + ├ Баланс:    0 ₽
+E     + ├ Подписок:  0...
+E
+E     ...Full output truncated (4 lines hidden), use '-vv' to show
+________________ test_invalid_actions_show_error[guide:linux] _________________
+tests\test_bot_portal.py:139: in test_invalid_actions_show_error
+    assert bot_driver.api.last_text() == tr("error", "ru")
+E   AssertionError: assert '<b>💡 Инструкции AERA</b>' == '⚙️ Не получи...в поддержку 💊'
+E
+E     - ⚙️ Не получилось выполнить действие. Попробуй ещё раз или напиши в поддержку 💊
+E     + <b>💡 Инструкции AERA</b>
+________________ test_invalid_actions_show_error[family:nope] _________________
+tests\test_bot_portal.py:139: in test_invalid_actions_show_error
+    assert bot_driver.api.last_text() == tr("error", "ru")
+E   AssertionError: assert '<b>📅 Выберит... подписки</b>' == '⚙️ Не получи...в поддержку 💊'
+E
+E     - ⚙️ Не получилось выполнить действие. Попробуй ещё раз или напиши в поддержку 💊
+E     + <b>📅 Выберите срок подписки</b>
+________________________ test_blocked_user_gets_error _________________________
+tests\test_bot_portal.py:147: in test_blocked_user_gets_error
+    assert bot_driver.api.last_text() == tr("error", "ru")
+E   AssertionError: assert 'Не удалось о...чный кабинет.' == '⚙️ Не получи...в поддержку 💊'
+E
+E     - ⚙️ Не получилось выполнить действие. Попробуй ещё раз или напиши в поддержку 💊
+E     + Не удалось открыть этот раздел. Вернитесь в личный кабинет.
+_____________________ test_windows_installer_unavailable ______________________
+tests\test_bot_portal.py:152: in test_windows_installer_unavailable
+    assert bot_driver.api.last_text() == tr("error", "ru")
+E   AssertionError: assert '<b>💡 Инструкции AERA</b>' == '⚙️ Не получи...в поддержку 💊'
+E
+E     - ⚙️ Не получилось выполнить действие. Попробуй ещё раз или напиши в поддержку 💊
+E     + <b>💡 Инструкции AERA</b>
+___________________________ test_catalog_and_family ___________________________
+tests\test_bot_portal.py:161: in test_catalog_and_family
+    assert "AERA PLUS" in text and "AERA BUSINESS" in text and tr("business", "ru") in text
+E   AssertionError: assert ('AERA PLUS' in '<b>📅 Выберите срок подписки</b>')
+________________ test_plan_creates_order_with_payment_options _________________
+tests\test_bot_portal.py:174: in test_plan_creates_order_with_payment_options
+    assert f"cancelorder:{order.id}" in buttons.values()
+E   AssertionError: assert 'cancelorder:91f089c1-6afe-4a59-b572-cb2c31f38074' in dict_values(['platega:sbp:91f089c1-6afe-4a59-b572-cb2c31f38074', 'platega:crypto:91f089c1-6afe-4a59-b572-cb2c31f38074', 'terms:91f089c1-6afe-4a59-b572-cb2c31f38074', 'profile'])
+E    +  where dict_values(['platega:sbp:91f089c1-6afe-4a59-b572-cb2c31f38074', 'platega:crypto:91f089c1-6afe-4a59-b572-cb2c31f38074', 'terms:91f089c1-6afe-4a59-b572-cb2c31f38074', 'profile']) = <built-in method values of dict object at 0x00000272BA92AB40>()
+E    +    where <built-in method values of dict object at 0x00000272BA92AB40> = {'🏦 СБП · 200 ₽': 'platega:sbp:91f089c1-6afe-4a59-b572-cb2c31f38074', '🪙 Криптовалюта': 'platega:crypto:91f089c1-6afe-...-cb2c31f38074', '⭐ Telegram Stars · 200': 'terms:91f089c1-6afe-4a59-b572-cb2c31f38074', '⬅️ Личный кабинет': 'profile'}.values
+_________________ test_freekassa_buttons_open_signed_checkout _________________
+tests\test_bot_portal.py:183: in test_freekassa_buttons_open_signed_checkout
+    app_settings(**FK)
+tests\conftest.py:100: in apply
+    monkeypatch.setattr(current, key, value)
+E   AttributeError: Settings(app_env='development', database_url='sqlite+aiosqlite:///C:\\Users\\safin\\AppData\\Local\\Temp\\aera-tests-dmjvrgos\\app.db', redis_url='redis://localhost:6379/0', public_base_url='http://localhost:8000', aera_subscription_origin='', bot_username='AeraBot', telegram_http_client='aiohttp', admin_telegram_ids='999', telegram_webhook_secret='', xui_mock_mode=True, xui_version='3.2.8', xui_allow_writes=False, xui_protected_hosts='', payment_provider='mock', card_provider='mock', crypto_provider='mock', yookassa_shop_id='', crypto_pay_testnet=True, mock_payment_secret='local-mock-only', crypto_mock_enabled=False, support_username='', manual_sales=True, ios_client_url='', android_client_url='', windows_client_url='', macos_client_url='') has no attribute 'freekassa_enabled'
+_____________________ test_terms_and_payment_placeholders _____________________
+tests\test_bot_portal.py:200: in test_terms_and_payment_placeholders
+    assert bot_driver.api.last_text() == tr("terms", "ru")
+E   assert '<b>Скоро в A...в поддержку 🤝' == '<b>Условия п...n@aerasuppbot'
+E
+E     + <b>Скоро в AERA ✨</b>
+E     +
+E     + Этот способ оплаты пока подключается. Администратор поможет с оплатой - напиши в поддержку 🤝
+E     - <b>Условия подписки</b>
+E     - Срок: 30, 90, 180 или 360 дней; от 1 до 10 устройств. Выбранные параметры и итоговая сумма показаны до оплаты. После подтверждённого платежа выдаётся отдельная личная HTTPS-ссылка. Срок новой подписки начинается с первого подтверждённого подключения. Один заказ — не более 10 000 ₽. Ранее оплаченные подписки сохраняют свои условия. Нажимая кнопку оплаты, вы принимаете пользовательское соглашение.
+E     - <a href="https://aera-reserve....
+E
+E     ...Full output truncated (2 lines hidden), use '-vv' to show
+________________________ test_stars_invoice_from_order ________________________
+tests\test_bot_portal.py:218: in test_stars_invoice_from_order
+    assert bot_driver.api.buttons()[tr("pay_button", "ru")].startswith("https://t.me/$invoice")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'Оплатить ⭐'
+_________________________ test_profile_without_access _________________________
+tests\test_bot_portal.py:264: in test_profile_without_access
+    assert tr("none", "ru") in bot_driver.api.last_text()
+E   assert 'Пока нет подписки' in '<b>👤 Профиль</b>\n<blockquote><code>├ Имя:       User1\n├ ID:        1\n├ Баланс:    0 ₽\n├ Подписок:  0\n└ Устройств...pn">🕊 Наш канал 👈</a>\n<b>🔗 Ваш ключ 👇</b>\n<blockquote><code>Ключ появится после выбора подписки.</code></blockquote>'
+E    +  where 'Пока нет подписки' = tr('none', 'ru')
+E    +  and   '<b>👤 Профиль</b>\n<blockquote><code>├ Имя:       User1\n├ ID:        1\n├ Баланс:    0 ₽\n├ Подписок:  0\n└ Устройств...pn">🕊 Наш канал 👈</a>\n<b>🔗 Ваш ключ 👇</b>\n<blockquote><code>Ключ появится после выбора подписки.</code></blockquote>' = last_text()
+E    +    where last_text = <bot_harness.RecordingSession object at 0x00000272BBA56300>.last_text
+E    +      where <bot_harness.RecordingSession object at 0x00000272BBA56300> = <bot_harness.Driver object at 0x00000272BA8D50A0>.api
+___________________ test_profile_and_link_for_paid_customer ___________________
+tests\test_bot_portal.py:290: in test_profile_and_link_for_paid_customer
+    assert tr("WAITING", "ru") in bot_driver.api.last_text()
+E   AssertionError: assert 'Ожидает первого подключения ⏳' in '<b>👤 Профиль</b>\n<blockquote><code>├ Имя:       User1\n├ ID:        1\n├ Баланс:    0 ₽\n├ Подписок:  1\n└ Устройств...канал 👈</a>\n<b>🔗 Ваш ключ 👇</b>\n<blockquote><code>Проверяем доступ. Обновите кабинет чуть позже.</code></blockquote>'
+E    +  where 'Ожидает первого подключения ⏳' = tr('WAITING', 'ru')
+E    +  and   '<b>👤 Профиль</b>\n<blockquote><code>├ Имя:       User1\n├ ID:        1\n├ Баланс:    0 ₽\n├ Подписок:  1\n└ Устройств...канал 👈</a>\n<b>🔗 Ваш ключ 👇</b>\n<blockquote><code>Проверяем доступ. Обновите кабинет чуть позже.</code></blockquote>' = last_text()
+E    +    where last_text = <bot_harness.RecordingSession object at 0x00000272BBA24110>.last_text
+E    +      where <bot_harness.RecordingSession object at 0x00000272BBA24110> = <bot_harness.Driver object at 0x00000272BA8D5DF0>.api
+_______________________ test_profile_with_active_expiry _______________________
+tests\test_bot_portal.py:304: in test_profile_with_active_expiry
+    assert tr("ACTIVE", "ru") in bot_driver.api.last_text()
+E   AssertionError: assert 'Активна ✅' in '<b>👤 Профиль</b>\n<blockquote><code>├ Имя:       User1\n├ ID:        1\n├ Баланс:    0 ₽\n├ Подписок:  1\n└ Устройств...канал 👈</a>\n<b>🔗 Ваш ключ 👇</b>\n<blockquote><code>Проверяем доступ. Обновите кабинет чуть позже.</code></blockquote>'
+E    +  where 'Активна ✅' = tr('ACTIVE', 'ru')
+E    +  and   '<b>👤 Профиль</b>\n<blockquote><code>├ Имя:       User1\n├ ID:        1\n├ Баланс:    0 ₽\n├ Подписок:  1\n└ Устройств...канал 👈</a>\n<b>🔗 Ваш ключ 👇</b>\n<blockquote><code>Проверяем доступ. Обновите кабинет чуть позже.</code></blockquote>' = last_text()
+E    +    where last_text = <bot_harness.RecordingSession object at 0x00000272BBA67B60>.last_text
+E    +      where <bot_harness.RecordingSession object at 0x00000272BBA67B60> = <bot_harness.Driver object at 0x00000272BBA51040>.api
+_______________ test_profile_and_link_for_legacy_manual_access ________________
+tests\test_bot_portal.py:320: in test_profile_and_link_for_legacy_manual_access
+    assert tr("ACTIVE", "ru") in bot_driver.api.last_text()
+E   AssertionError: assert 'Активна ✅' in '<b>👤 Профиль</b>\n<blockquote><code>├ Имя:       User1\n├ ID:        1\n├ Баланс:    0 ₽\n├ Подписок:  1\n└ Устройств...канал 👈</a>\n<b>🔗 Ваш ключ 👇</b>\n<blockquote><code>Проверяем доступ. Обновите кабинет чуть позже.</code></blockquote>'
+E    +  where 'Активна ✅' = tr('ACTIVE', 'ru')
+E    +  and   '<b>👤 Профиль</b>\n<blockquote><code>├ Имя:       User1\n├ ID:        1\n├ Баланс:    0 ₽\n├ Подписок:  1\n└ Устройств...канал 👈</a>\n<b>🔗 Ваш ключ 👇</b>\n<blockquote><code>Проверяем доступ. Обновите кабинет чуть позже.</code></blockquote>' = last_text()
+E    +    where last_text = <bot_harness.RecordingSession object at 0x00000272BA8D6270>.last_text
+E    +      where <bot_harness.RecordingSession object at 0x00000272BA8D6270> = <bot_harness.Driver object at 0x00000272BBA57260>.api
+____________________________ test_no_link_message _____________________________
+tests\test_bot_portal.py:327: in test_no_link_message
+    assert bot_driver.api.last_text() == tr("no_link", "ru")
+E   AssertionError: assert '<b>👤 Профиль...</blockquote>' == '🔗 Администра...ужна помощь 🤝'
+E
+E     - 🔗 Администратор добавит твою личную ссылку после подключения. Напиши в поддержку, если нужна помощь 🤝
+E     + <b>👤 Профиль</b>
+E     + <blockquote><code>├ Имя:       User1
+E     + ├ ID:        1
+E     + ├ Баланс:    0 ₽
+E     + ├ Подписок:  0...
+E
+E     ...Full output truncated (4 lines hidden), use '-vv' to show
+____________________________ test_trial_claim_flow ____________________________
+tests\test_bot_portal.py:363: in test_trial_claim_flow
+    assert bot_driver.api.last_text() == tr("trial_empty", "ru")
+E   AssertionError: assert 'Пробные ключ...обуйте позже.' == '⏳ Все пробны...ку, поможем 🤝'
+E
+E     - ⏳ Все пробные ссылки заняты или ещё проверяются. Администратор получил запрос - напиши в поддержку, поможем 🤝
+E     + Пробные ключи временно закончились. Попробуйте позже.
+__________________________ test_support_conversation __________________________
+tests\test_bot_portal.py:390: in test_support_conversation
+    assert bot_driver.api.last_text().startswith(tr("ticket_sent", "ru", number="")[:10])
+E   AssertionError: assert False
+E    +  where False = <built-in method startswith of str object at 0x00000272AF956010>('📤 Обращени')
+E    +    where <built-in method startswith of str object at 0x00000272AF956010> = '<b>💬 Поддержка AERA</b>\n\n<blockquote>Напишите нам — поможем с подключением и подпиской 💛</blockquote>'.startswith
+E    +      where '<b>💬 Поддержка AERA</b>\n\n<blockquote>Напишите нам — поможем с подключением и подпиской 💛</blockquote>' = last_text()
+E    +        where last_text = <bot_harness.RecordingSession object at 0x00000272BBA27D40>.last_text
+E    +          where <bot_harness.RecordingSession object at 0x00000272BBA27D40> = <bot_harness.Driver object at 0x00000272BBA51FA0>.api
+____________________ test_support_command_and_long_message ____________________
+tests\test_bot_portal.py:400: in test_support_command_and_long_message
+    assert bot_driver.api.last_text() == tr("support_info", "ru")
+E   AssertionError: assert '<b>💬 Поддерж...</blockquote>' == '<b>🛟 Поддерж...менты — ниже.'
+E
+E     - <b>🛟 Поддержка</b>
+E     ?    ^
+E     + <b>💬 Поддержка AERA</b>
+E     ?    ^          +++++
+E
+E     + <blockquote>Напишите нам — поможем с подключением и подпиской 💛</blockquote>...
+E
+E     ...Full output truncated (3 lines hidden), use '-vv' to show
+______________________ test_legal_commands[/terms-terms] ______________________
+tests\test_bot_portal.py:408: in test_legal_commands
+    assert bot_driver.api.last_text() == tr(key, "ru")
+E   assert '<b>📄 Условия подписки</b>' == '<b>Условия п...n@aerasuppbot'
+E
+E     - <b>Условия подписки</b>
+E     ?                        -
+E     + <b>📄 Условия подписки</b>
+E     ?    ++
+E     - Срок: 30, 90, 180 или 360 дней; от 1 до 10 устройств. Выбранные параметры и итоговая сумма показаны до оплаты. После подтверждённого платежа выдаётся отдельная личная HTTPS-ссылка. Срок новой подписки начинается с первого подтверждённого подключения. Один заказ — не более 10 000 ₽. Ранее оплаченные подписки сохраняют свои условия. Нажимая кнопку оплаты, вы принимаете пользовательское соглашение.
+E     - <a href="https://aera-reserve.duckdns.org/terms?lang=ru">Полное соглашение</a> · <a href="ht...
+E
+E     ...Full output truncated (2 lines hidden), use '-vv' to show
+____________________________ test_privacy_command _____________________________
+tests\test_bot_portal.py:415: in test_privacy_command
+    assert bot_driver.api.last_text() == privacy_page("ru", 0)
+E   AssertionError: assert '<b>🔐 Конфиденциальность</b>' == '<b>Политика ... @aerasuppbot'
+E
+E     + <b>🔐 Конфиденциальность</b>
+E     - <b>Политика конфиденциальности · 1/3</b>
+E     - AERA VPN · Редакция от 17 октября 2026 года.
+E     -
+E     - <b>1. О сервисе и контактах</b>
+E     - Эта политика описывает обработку данных в AERA VPN: на сайте aera-reserve.duckdns.org и в Telegram-боте @AERAVPN_BOT. По вопросам данных обращайтесь в поддержку @aerasuppbot или через команду /support в боте....
+E
+E     ...Full output truncated (8 lines hidden), use '-vv' to show
+______________________ test_send_selected_checkout_stars ______________________
+tests\test_bot_portal.py:435: in test_send_selected_checkout_stars
+    assert "⭐ 200 Stars" in bot_driver.api.last_text()  # terms first
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: assert '⭐ 200 Stars' in '<b>💳 Оплата подписки</b>\n\n<blockquote>📅 Срок: 1 мес.\n📱 Устройств: 3\n💰 К оплате: 200 ₽</blockquote>\n\nВыберите удобный способ оплаты 👇'
+E    +  where '<b>💳 Оплата подписки</b>\n\n<blockquote>📅 Срок: 1 мес.\n📱 Устройств: 3\n💰 К оплате: 200 ₽</blockquote>\n\nВыберите удобный способ оплаты 👇' = last_text()
+E    +    where last_text = <bot_harness.RecordingSession object at 0x00000272BBAD1A90>.last_text
+E    +      where <bot_harness.RecordingSession object at 0x00000272BBAD1A90> = <bot_harness.Driver object at 0x00000272BBB75FA0>.api
+_____________________ test_send_selected_checkout_errors ______________________
+tests\test_bot_portal.py:448: in test_send_selected_checkout_errors
+    assert bot_driver.api.last_text().startswith("Не удалось открыть оплату")
+E   AssertionError: assert False
+E    +  where False = <built-in method startswith of str object at 0x00000272B88FD730>('Не удалось открыть оплату')
+E    +    where <built-in method startswith of str object at 0x00000272B88FD730> = '⚙️ Не получилось выполнить действие. Попробуй ещё раз или напиши в поддержку 💊'.startswith
+E    +      where '⚙️ Не получилось выполнить действие. Попробуй ещё раз или напиши в поддержку 💊' = last_text()
+E    +        where last_text = <bot_harness.RecordingSession object at 0x00000272BBB76B40>.last_text
+E    +          where <bot_harness.RecordingSession object at 0x00000272BBB76B40> = <bot_harness.Driver object at 0x00000272BBB76480>.api
+------------------------------ Captured log call ------------------------------
+ERROR    aera:portal.py:432 website_checkout_failed type=ValueError
+___________________________ test_send_selected_rub ____________________________
+tests\test_bot_portal.py:456: in test_send_selected_rub
+    app_settings(**FK)
+tests\conftest.py:100: in apply
+    monkeypatch.setattr(current, key, value)
+E   AttributeError: Settings(app_env='development', database_url='sqlite+aiosqlite:///C:\\Users\\safin\\AppData\\Local\\Temp\\aera-tests-dmjvrgos\\app.db', redis_url='redis://localhost:6379/0', public_base_url='http://localhost:8000', aera_subscription_origin='', bot_username='AeraBot', telegram_http_client='aiohttp', admin_telegram_ids='999', telegram_webhook_secret='', xui_mock_mode=True, xui_version='3.2.8', xui_allow_writes=False, xui_protected_hosts='', payment_provider='mock', card_provider='mock', crypto_provider='mock', yookassa_shop_id='', crypto_pay_testnet=True, mock_payment_secret='local-mock-only', crypto_mock_enabled=False, support_username='', manual_sales=True, ios_client_url='', android_client_url='', windows_client_url='', macos_client_url='') has no attribute 'freekassa_enabled'
+________________ test_rejects_unsupported_settings[overrides4] ________________
+tests\test_core.py:71: in test_rejects_unsupported_settings
+    with pytest.raises(ValidationError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE ValidationError
+________________________ test_valid_freekassa_settings ________________________
+tests\test_core.py:94: in test_valid_freekassa_settings
+    settings = make(
+tests\test_core.py:24: in make
+    return Settings(_env_file=None, database_url="sqlite+aiosqlite:///:memory:", **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\pydantic_settings\main.py:262: in __init__
+    super().__init__(**__pydantic_self__.__class__._settings_build_values(sources, init_kwargs))
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for Settings
+E     Value error, Unsupported card provider [type=value_error]
+E       For further information visit https://errors.pydantic.dev/2.13/v/value_error
+_________________ test_unpaid_checkout_does_not_consume_promo _________________
+tests\test_promos.py:37: in test_unpaid_checkout_does_not_consume_promo
+    assert await uses(sessions) == 0
+E   assert 1 == 0
+_______________________ test_replaces_unused_trial_key ________________________
+tests\test_trial_keys.py:84: in test_replaces_unused_trial_key
+    total = await make(panel).replace_trial_key(old, new, email, "UNUSED", ISSUED, 15)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\integrations\xui\trial_keys.py:107: in replace_trial_key
+    current, record, traffic = await self.inspect_trial(old_uuid, new_uuid, email, new_email)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\integrations\xui\trial_keys.py:76: in inspect_trial
+    raise XUIError("Trial limits or renewal policy changed")
+E   app.integrations.xui.exceptions.XUIError: Trial limits or renewal policy changed
+_________ test_resumes_interrupted_replacement_without_second_update __________
+tests\test_trial_keys.py:95: in test_resumes_interrupted_replacement_without_second_update
+    total = await make(panel).replace_trial_key(old, new, email, "UNUSED", ISSUED, 0)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\integrations\xui\trial_keys.py:107: in replace_trial_key
+    current, record, traffic = await self.inspect_trial(old_uuid, new_uuid, email, new_email)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\integrations\xui\trial_keys.py:76: in inspect_trial
+    raise XUIError("Trial limits or renewal policy changed")
+E   app.integrations.xui.exceptions.XUIError: Trial limits or renewal policy changed
+_______________________ test_replaces_expired_trial_key _______________________
+tests\test_trial_keys.py:103: in test_replaces_expired_trial_key
+    await make(panel).replace_trial_key(old, new, email, "EXPIRED", ISSUED, 0)
+app\integrations\xui\trial_keys.py:107: in replace_trial_key
+    current, record, traffic = await self.inspect_trial(old_uuid, new_uuid, email, new_email)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\integrations\xui\trial_keys.py:76: in inspect_trial
+    raise XUIError("Trial limits or renewal policy changed")
+E   app.integrations.xui.exceptions.XUIError: Trial limits or renewal policy changed
+________ test_refuses_to_rotate_started_trials[UNUSED-panel_kwargs0-0] ________
+tests\test_trial_keys.py:120: in test_refuses_to_rotate_started_trials
+    await make(panel).replace_trial_key(old, new, email, reason, ISSUED, baseline)
+app\integrations\xui\trial_keys.py:107: in replace_trial_key
+    current, record, traffic = await self.inspect_trial(old_uuid, new_uuid, email, new_email)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\integrations\xui\trial_keys.py:76: in inspect_trial
+    raise XUIError("Trial limits or renewal policy changed")
+E   app.integrations.xui.exceptions.XUIError: Trial limits or renewal policy changed
+________ test_refuses_to_rotate_started_trials[UNUSED-panel_kwargs1-0] ________
+tests\test_trial_keys.py:120: in test_refuses_to_rotate_started_trials
+    await make(panel).replace_trial_key(old, new, email, reason, ISSUED, baseline)
+app\integrations\xui\trial_keys.py:107: in replace_trial_key
+    current, record, traffic = await self.inspect_trial(old_uuid, new_uuid, email, new_email)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\integrations\xui\trial_keys.py:76: in inspect_trial
+    raise XUIError("Trial limits or renewal policy changed")
+E   app.integrations.xui.exceptions.XUIError: Trial limits or renewal policy changed
+________ test_refuses_to_rotate_started_trials[UNUSED-panel_kwargs2-0] ________
+tests\test_trial_keys.py:120: in test_refuses_to_rotate_started_trials
+    await make(panel).replace_trial_key(old, new, email, reason, ISSUED, baseline)
+app\integrations\xui\trial_keys.py:107: in replace_trial_key
+    current, record, traffic = await self.inspect_trial(old_uuid, new_uuid, email, new_email)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\integrations\xui\trial_keys.py:76: in inspect_trial
+    raise XUIError("Trial limits or renewal policy changed")
+E   app.integrations.xui.exceptions.XUIError: Trial limits or renewal policy changed
+_______ test_refuses_to_rotate_started_trials[EXPIRED-panel_kwargs3-0] ________
+tests\test_trial_keys.py:120: in test_refuses_to_rotate_started_trials
+    await make(panel).replace_trial_key(old, new, email, reason, ISSUED, baseline)
+app\integrations\xui\trial_keys.py:107: in replace_trial_key
+    current, record, traffic = await self.inspect_trial(old_uuid, new_uuid, email, new_email)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\integrations\xui\trial_keys.py:76: in inspect_trial
+    raise XUIError("Trial limits or renewal policy changed")
+E   app.integrations.xui.exceptions.XUIError: Trial limits or renewal policy changed
+_______________ test_idle_rotation_requires_premature_deadline ________________
+tests\test_trial_keys.py:127: in test_idle_rotation_requires_premature_deadline
+    with pytest.raises(XUIError, match="premature"):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: Regex pattern did not match.
+E     Expected regex: 'premature'
+E     Actual message: 'Trial limits or renewal policy changed'
+_________________ test_rejects_invalid_identities_and_reasons _________________
+tests\test_trial_keys.py:138: in test_rejects_invalid_identities_and_reasons
+    with pytest.raises(XUIError, match="Unsupported"):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: Regex pattern did not match.
+E     Expected regex: 'Unsupported'
+E     Actual message: 'Trial limits or renewal policy changed'
+______________________ test_confirms_first_use_deadline _______________________
+tests\test_trial_keys.py:166: in test_confirms_first_use_deadline
+    await make(panel).confirm_trial_deadline(identity, email, deadline, ISSUED, 0)
+app\integrations\xui\trial_keys.py:195: in confirm_trial_deadline
+    current, record, traffic = await self.inspect_trial(identity, identity, email)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\integrations\xui\trial_keys.py:76: in inspect_trial
+    raise XUIError("Trial limits or renewal policy changed")
+E   app.integrations.xui.exceptions.XUIError: Trial limits or renewal policy changed
+____________________ test_deadline_requires_confirmed_use _____________________
+tests\test_trial_keys.py:176: in test_deadline_requires_confirmed_use
+    with pytest.raises(XUIError, match="not confirmed"):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: Regex pattern did not match.
+E     Expected regex: 'not confirmed'
+E     Actual message: 'Trial limits or renewal policy changed'
+__________________ test_claim_link_once_per_telegram_account __________________
+tests\test_trial_pool.py:92: in test_claim_link_once_per_telegram_account
+    assert (await claim_link(db, user, SECRET))[1] == "used"
+E   AssertionError: assert 'pending' == 'used'
+E
+E     - used
+E     + pending
+________________ test_apply_snapshot_verifies_unassigned_stock ________________
+tests\test_trial_pool.py:166: in test_apply_snapshot_verifies_unassigned_stock
+    assert ready.status == "FREE" and ready.ready_at
+E   AssertionError: assert ('UNAVAILABLE' == 'FREE'
+E
+E     - FREE
+E     + UNAVAILABLE)
+============================== warnings summary ===============================
+tests/test_trial_pool.py::test_confirm_activation_notifies_admin_once
+  sys:1: SAWarning: fully NULL primary key identity cannot load any object.  This condition may raise an error in a future release.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_bot_admin.py::test_admin_command_requires_admin - Assertion...
+FAILED tests/test_bot_admin.py::test_users_list_and_card - AssertionError: as...
+FAILED tests/test_bot_payments.py::test_pre_checkout_accepts_matching_invoice
+FAILED tests/test_bot_payments.py::test_pre_checkout_reserves_paid_stock_for_manual_order
+FAILED tests/test_bot_payments.py::test_successful_payment_activates_subscription
+FAILED tests/test_bot_payments.py::test_successful_payment_for_manual_order_issues_link
+FAILED tests/test_bot_payments.py::test_receipt_bypasses_maintenance - ValueE...
+FAILED tests/test_bot_portal.py::test_start_registers_user_with_referral_and_shows_languages
+FAILED tests/test_bot_portal.py::test_language_selection - AssertionError: as...
+FAILED tests/test_bot_portal.py::test_platform_guides[ios] - AssertionError: ...
+FAILED tests/test_bot_portal.py::test_platform_guides[android] - AssertionErr...
+FAILED tests/test_bot_portal.py::test_platform_guides[windows] - AssertionErr...
+FAILED tests/test_bot_portal.py::test_platform_guides[macos] - AssertionError...
+FAILED tests/test_bot_portal.py::test_invalid_actions_show_error[privacy:7]
+FAILED tests/test_bot_portal.py::test_invalid_actions_show_error[guide:linux]
+FAILED tests/test_bot_portal.py::test_invalid_actions_show_error[family:nope]
+FAILED tests/test_bot_portal.py::test_blocked_user_gets_error - AssertionErro...
+FAILED tests/test_bot_portal.py::test_windows_installer_unavailable - Asserti...
+FAILED tests/test_bot_portal.py::test_catalog_and_family - AssertionError: as...
+FAILED tests/test_bot_portal.py::test_plan_creates_order_with_payment_options
+FAILED tests/test_bot_portal.py::test_freekassa_buttons_open_signed_checkout
+FAILED tests/test_bot_portal.py::test_terms_and_payment_placeholders - assert...
+FAILED tests/test_bot_portal.py::test_stars_invoice_from_order - KeyError: 'О...
+FAILED tests/test_bot_portal.py::test_profile_without_access - assert 'Пока н...
+FAILED tests/test_bot_portal.py::test_profile_and_link_for_paid_customer - As...
+FAILED tests/test_bot_portal.py::test_profile_with_active_expiry - AssertionE...
+FAILED tests/test_bot_portal.py::test_profile_and_link_for_legacy_manual_access
+FAILED tests/test_bot_portal.py::test_no_link_message - AssertionError: asser...
+FAILED tests/test_bot_portal.py::test_trial_claim_flow - AssertionError: asse...
+FAILED tests/test_bot_portal.py::test_support_conversation - AssertionError: ...
+FAILED tests/test_bot_portal.py::test_support_command_and_long_message - Asse...
+FAILED tests/test_bot_portal.py::test_legal_commands[/terms-terms] - assert '...
+FAILED tests/test_bot_portal.py::test_privacy_command - AssertionError: asser...
+FAILED tests/test_bot_portal.py::test_send_selected_checkout_stars - Assertio...
+FAILED tests/test_bot_portal.py::test_send_selected_checkout_errors - Asserti...
+FAILED tests/test_bot_portal.py::test_send_selected_rub - AttributeError: Set...
+FAILED tests/test_core.py::test_rejects_unsupported_settings[overrides4] - Fa...
+FAILED tests/test_core.py::test_valid_freekassa_settings - pydantic_core._pyd...
+FAILED tests/test_promos.py::test_unpaid_checkout_does_not_consume_promo - as...
+FAILED tests/test_trial_keys.py::test_replaces_unused_trial_key - app.integra...
+FAILED tests/test_trial_keys.py::test_resumes_interrupted_replacement_without_second_update
+FAILED tests/test_trial_keys.py::test_replaces_expired_trial_key - app.integr...
+FAILED tests/test_trial_keys.py::test_refuses_to_rotate_started_trials[UNUSED-panel_kwargs0-0]
+FAILED tests/test_trial_keys.py::test_refuses_to_rotate_started_trials[UNUSED-panel_kwargs1-0]
+FAILED tests/test_trial_keys.py::test_refuses_to_rotate_started_trials[UNUSED-panel_kwargs2-0]
+FAILED tests/test_trial_keys.py::test_refuses_to_rotate_started_trials[EXPIRED-panel_kwargs3-0]
+FAILED tests/test_trial_keys.py::test_idle_rotation_requires_premature_deadline
+FAILED tests/test_trial_keys.py::test_rejects_invalid_identities_and_reasons
+FAILED tests/test_trial_keys.py::test_confirms_first_use_deadline - app.integ...
+FAILED tests/test_trial_keys.py::test_deadline_requires_confirmed_use - Asser...
+FAILED tests/test_trial_pool.py::test_claim_link_once_per_telegram_account - ...
+FAILED tests/test_trial_pool.py::test_apply_snapshot_verifies_unassigned_stock
+ERROR tests/test_api.py
+ERROR tests/test_bot_legacy.py - AttributeError: module 'app.bot.texts.ru' ha...
+ERROR tests/test_bot_misc.py
+ERROR tests/test_manual_sales.py
+ERROR tests/test_notifications_admin.py
+ERROR tests/test_payment_adapters.py
+ERROR tests/test_payment_polling.py
+ERROR tests/test_worker.py
+52 failed, 176 passed, 1 warning, 8 errors in 31.73s

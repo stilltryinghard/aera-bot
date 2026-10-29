@@ -11,11 +11,10 @@ from sqlalchemy import or_, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
+from app.core.trial_policy import DURATION_MS, LEGACY_DURATION_MS, TRIAL_IP_LIMIT
 from app.db.models import AppSetting, Notification, TrialLink, TrialUsage, User
 from app.services.commerce import utc
 from app.services.notifications import enqueue
-
-DURATION_MS = 2 * 86400000
 
 
 def fingerprint(telegram_id, secret):
@@ -55,11 +54,19 @@ async def claim_link(db, user, secret):
     await db.execute(update(User).where(User.id == user.id).values(is_active=User.is_active))
     previous = await db.scalar(select(TrialLink).where(TrialLink.user_id == user.id))
     if previous:
-        return previous, "used" if previous.pending_uuid else "existing"
+        if previous.pending_uuid or (not previous.started_at and previous.issued_at
+                and utc(previous.issued_at) <= datetime.now(UTC) - timedelta(hours=1)
+                and previous.status in {"WAITING", "BLOCKED", "RECYCLING"}):
+            return previous, "pending"
+        return previous, "existing"
     digest = fingerprint(user.telegram_id, secret)
     if await db.get(TrialUsage, digest):
         return None, "used"
-    # Worker confirms that the negative two-day deadline is present before FREE.
+    from app.services.trial_attempts import MAX_ISSUES, issued_count, remember_count
+    attempts = await issued_count(db, user, secret)
+    if attempts >= MAX_ISSUES:
+        return None, "limit"
+    # Worker confirms the full negative first-use duration before FREE.
     candidates = list(
         await db.scalars(
             select(TrialLink.id)
@@ -87,6 +94,9 @@ async def claim_link(db, user, secret):
         if result.rowcount == 1:
             insert = pg_insert if db.bind.dialect.name == "postgresql" else sqlite_insert
             await db.execute(insert(TrialUsage).values(fingerprint=digest))
+            from app.services.daily_metrics import record
+            await record(db, "issued", user.telegram_id, secret)
+            await remember_count(db, user, secret, attempts + 1)
             user.trial_used = True
             return await db.get(TrialLink, identity), "new"
     return None, "empty"
@@ -130,12 +140,31 @@ async def apply_snapshot(db, snapshot, settings):
     clients = {c.get("id"): c for c in config.get("clients", [])}
     traffic = {t.get("email"): t for t in snapshot.get("clientStats", [])}
     now = datetime.now(UTC)
+    legacy_setting = await db.get(AppSetting, "trial_legacy_7_ids")
+    legacy_ids = json.loads(legacy_setting.value) if legacy_setting else []
+    if not isinstance(legacy_ids, list) or any(not isinstance(identity, str) for identity in legacy_ids):
+        raise ValueError("Invalid grandfathered trial policy")
+    legacy_ids = set(legacy_ids)
+    cutoff_setting = await db.get(AppSetting, "trial5_start_at")
+    legacy_cutoff = utc(datetime.fromisoformat(cutoff_setting.value)) if cutoff_setting else None
+    if legacy_ids and legacy_cutoff is None:
+        raise ValueError("Grandfathered trial policy requires deployment timestamp")
     for record in await db.scalars(select(TrialLink)):
+        from app.db.models import PaidLink
+        if await db.scalar(select(PaidLink.id).where(PaidLink.client_uuid == record.client_uuid)):
+            record.status = "CONVERTED"
+            continue
+        # Only explicitly grandfathered assignments keep seven days; recycled
+        # inventory becomes five days again when its previous owner is cleared.
+        duration_ms = (LEGACY_DURATION_MS if record.user_id and record.id in legacy_ids
+                       and record.issued_at and utc(record.issued_at) < legacy_cutoff else DURATION_MS)
         if record.pending_uuid:
             # A persisted key replacement must be reconciled before any assignment.
             continue
         client = clients.get(record.client_uuid)
         if client is None:
+            if record.status == "PROVISIONING":
+                continue
             if not record.user_id:
                 record.status = "UNAVAILABLE"
             continue
@@ -153,7 +182,7 @@ async def apply_snapshot(db, snapshot, settings):
                 record.ready_at and last_online > int(utc(record.ready_at).timestamp() * 1000)
             )
             limits_ok = (
-                int(client.get("limitIp", 1)) == 1
+                int(client.get("limitIp", -1)) == TRIAL_IP_LIMIT
                 and int(client.get("totalGB", 0)) == 0
                 and int(client.get("reset", 0)) == 0
             )
@@ -174,18 +203,19 @@ async def apply_snapshot(db, snapshot, settings):
             else:
                 record.status = "UNAVAILABLE"
             continue
-        if record.activation_deadline_ms:
-            if expiry_ms == record.activation_deadline_ms:
-                await confirm_activation(db, record, settings, enabled)
-            else:
-                record.status = "ACTIVATING"
-            continue
         issued_ms = int(utc(record.issued_at).timestamp() * 1000) if record.issued_at else 0
         last_online = int(stats.get("lastOnline", 0))
         used = (
             int(stats.get("up", 0)) + int(stats.get("down", 0)) > record.baseline_bytes
             or last_online > issued_ms > 0
         )
+        if record.activation_deadline_ms:
+            # Existing verified assignment deadlines are contractual; never shorten them.
+            if expiry_ms == record.activation_deadline_ms:
+                await confirm_activation(db, record, settings, enabled)
+            else:
+                record.status = "ACTIVATING"
+            continue
         if not used:
             # Repair false activations created by the old expiry-only observer.
             if record.started_at:
@@ -211,8 +241,8 @@ async def apply_snapshot(db, snapshot, settings):
             record.status = "WAITING" if enabled else "BLOCKED"
             continue
         if expiry_ms > 0 and expiry_ms <= int(now.timestamp() * 1000):
-            # An already finished, used trial must never get a fresh two days.
-            record.started_at = datetime.fromtimestamp((expiry_ms - DURATION_MS) / 1000, UTC)
+            # An already finished, used trial must never get a fresh trial.
+            record.started_at = record.started_at or datetime.fromtimestamp((expiry_ms - duration_ms) / 1000, UTC)
             record.activation_deadline_ms = expiry_ms
             await confirm_activation(db, record, settings, enabled)
             continue
@@ -222,7 +252,7 @@ async def apply_snapshot(db, snapshot, settings):
             else now
         )
         record.started_at = start
-        record.activation_deadline_ms = int(start.timestamp() * 1000) + DURATION_MS
+        record.activation_deadline_ms = int(start.timestamp() * 1000) + duration_ms
         record.expires_at = None
         record.status = "ACTIVATING"
 
@@ -247,6 +277,8 @@ async def synchronize(sessions, vault, settings):
         from app.services.paid_pool import apply_paid_snapshot
 
         await apply_paid_snapshot(db, snapshot, settings)
+        from app.services.trial_conversion import schedule_paid_trials
+        await schedule_paid_trials(db, settings)
     from app.services.trial_activation import reconcile_activations
     from app.services.trial_recycling import recycle_trials
 

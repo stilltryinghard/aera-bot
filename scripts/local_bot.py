@@ -1,4 +1,4 @@
-"""Telegram demo using the existing isolated local runtime; no panel access."""
+"""Telegram polling for the live stock portal; generic provisioning is disabled."""
 
 import asyncio
 import logging
@@ -46,7 +46,7 @@ async def run():
                 BotCommand(command="privacy", description="Конфиденциальность"),
             ]
         )
-        print(f"Telegram demo ready: @{me.username}; panel mock only", flush=True)
+        print(f"AERA bot ready: @{me.username}; stock portal", flush=True)
     finally:
         await bot.session.close()
     await main()
@@ -59,5 +59,5 @@ if __name__ == "__main__":
     try:
         asyncio.run(run())
     except Exception as error:
-        print(f"Telegram demo stopped: {type(error).__name__}", flush=True)
+        print(f"AERA bot stopped: {type(error).__name__}", flush=True)
         raise SystemExit(1) from None

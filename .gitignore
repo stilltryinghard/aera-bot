@@ -27,3 +27,13 @@ Thumbs.db
 # Optional third-party installers
 *.exe
 .coverage
+
+# Audit/developer caches and sensitive artifacts
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.db-*
+*.sqlite*
+*.pem
+*.key

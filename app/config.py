@@ -1,5 +1,4 @@
 from functools import lru_cache
-
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -11,6 +10,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://aera:aera@localhost:5432/aera"
     redis_url: str = "redis://localhost:6379/0"
     public_base_url: str = "http://localhost:8000"
+    aera_subscription_origin: str = ""
     bot_token: str = Field(default="", repr=False)
     bot_username: str = "AeraVpnBot"
     telegram_http_client: str = "aiohttp"
@@ -24,10 +24,6 @@ class Settings(BaseSettings):
     xui_credentials_json: str = Field(default="{}", repr=False)
     payment_provider: str = "mock"
     card_provider: str = "mock"
-    freekassa_enabled: bool = False
-    freekassa_merchant_id: str = ""
-    freekassa_secret1: str = Field(default="", repr=False)
-    freekassa_secret2: str = Field(default="", repr=False)
     crypto_provider: str = "mock"
     yookassa_shop_id: str = ""
     yookassa_secret_key: str = Field(default="", repr=False)
@@ -38,9 +34,6 @@ class Settings(BaseSettings):
     crypto_mock_secret: str = Field(default="local-crypto-test-only", repr=False)
     support_username: str = ""
     manual_sales: bool = True
-    manual_sbp_enabled: bool = False
-    wata_token: str = Field(default="", repr=False)
-    wata_terminal_id: str = ""
     ios_client_url: str = ""
     android_client_url: str = ""
     windows_client_url: str = ""
@@ -56,10 +49,8 @@ class Settings(BaseSettings):
             raise ValueError("Unsupported Telegram HTTP client")
         if self.payment_provider not in {"mock", "telegram_stars", "live"}:
             raise ValueError("Unsupported payment provider")
-        if self.card_provider not in {"mock", "yookassa", "freekassa"}:
+        if self.card_provider not in {"mock", "yookassa"}:
             raise ValueError("Unsupported card provider")
-        if self.freekassa_enabled and (self.card_provider != "freekassa" or not self.freekassa_merchant_id.isdigit() or not self.freekassa_secret1 or not self.freekassa_secret2 or self.freekassa_secret1 == self.freekassa_secret2):
-            raise ValueError("FreeKassa settings incomplete")
         if self.crypto_provider not in {"mock", "crypto_pay"}:
             raise ValueError("Unsupported crypto provider")
         if not self.xui_mock_mode and self.xui_version not in {"2.8.5", "3.2.8"}:

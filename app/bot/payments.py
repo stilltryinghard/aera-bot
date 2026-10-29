@@ -4,13 +4,10 @@ from aiogram import F, Router
 from aiogram.types import Message, PreCheckoutQuery
 from sqlalchemy import select, update
 
-from app.bot.keyboards import keyboard
 from app.bot.texts import ru
 from app.config import get_settings
-from app.core.security import TokenVault
-from app.db.models import Payment, ProvisioningJob, SaleOrder, User
+from app.db.models import Payment, SaleOrder, User
 from app.db.session import sessions
-from app.services.commerce import CommerceService
 
 router = Router()
 
@@ -30,9 +27,7 @@ async def validate_invoice(
         or payment.status not in {"PENDING", "PAID"}
     ):
         raise ValueError("Invoice mismatch")
-    if payment.details.get("manual_order") and not await db.scalar(
-        select(SaleOrder.id).where(SaleOrder.payment_id == payment.id)
-    ):
+    if not await db.scalar(select(SaleOrder.id).where(SaleOrder.payment_id == payment.id)):
         raise ValueError("Manual order missing")
     return payment
 
@@ -59,6 +54,8 @@ async def pre_checkout(query: PreCheckoutQuery) -> None:
                 ticket = await db.get(SupportTicket, order.ticket_id)
                 if order.paid_at or not ticket or ticket.status not in {"OPEN", "IN_PROGRESS"}:
                     raise ValueError("Order already fulfilled")
+                from app.services.payment_timeout import require_open
+                await require_open(db, order)
                 from app.services.paid_pool import available, enabled, reserve
 
                 if await enabled(db):
@@ -102,13 +99,7 @@ async def successful_payment(message: Message) -> None:
                         PaidLink.order_id == manual, PaidLink.issued_at.is_not(None)
                     )
                 )
-            else:
-                payment.provider_payment_id = receipt.telegram_payment_charge_id
-                await CommerceService(db, TokenVault(settings.app_secret)).confirm(payment.id)
             await db.flush()
-            job_id = await db.scalar(
-                select(ProvisioningJob.id).where(ProvisioningJob.payment_id == payment.id)
-            )
         if manual:
             from app.bot.portal import home_menu
             from app.bot.texts.portal import text
@@ -126,15 +117,6 @@ async def successful_payment(message: Message) -> None:
                     allowed_types={"ACCESS_READY"},
                 )
             return
-        from app.bot.runtime import provisioner
-
-        ready = await provisioner.run(job_id, notify=False)
-        await message.answer(
-            (ru.READY if settings.xui_mock_mode else ru.READY_REAL) if ready else ru.PENDING,
-            reply_markup=keyboard(
-                ("🚀 Подключить", "connect"), ("📊 Моя подписка", "subscription")
-            ),
-        )
     except Exception as error:
         logging.getLogger("aera").error("stars_receipt_failed type=%s", type(error).__name__)
         # Fail the webhook so Telegram can redeliver a receipt rather than losing paid events.

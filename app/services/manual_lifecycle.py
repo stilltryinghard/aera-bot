@@ -10,6 +10,7 @@ from sqlalchemy import delete, exists, or_, select, text, update
 from app.db.models import (
     AuditLog,
     BroadcastDelivery,
+    FamilyAccess,
     ManualAccess,
     Notification,
     PaidLink,
@@ -102,7 +103,12 @@ async def purge_tickets(db, ticket_ids, *, user_id=None):
             )
         if order.payment_id:
             payment = await db.get(Payment, order.payment_id)
-            if payment and payment.status == "PENDING":
+            from app.services.orders import verified_cancellation
+
+            if payment and (
+                payment.status not in {"CANCELLED", "FAILED"}
+                or (payment.status == "CANCELLED" and not verified_cancellation(payment))
+            ):
                 raise DeletionBusy(
                     "По заявке выставлен действующий платёжный счёт. "
                     "Сначала нужно урегулировать его, чтобы не потерять подтверждение оплаты."
@@ -170,6 +176,7 @@ async def refuse_request(db, ticket_id, admin_ids):
     has_access = bool(
         await db.scalar(select(Subscription.id).where(Subscription.user_id == user.id))
         or await db.scalar(select(Payment.id).where(Payment.user_id == user.id))
+        or await db.scalar(select(FamilyAccess.id).where(FamilyAccess.user_id == user.id))
         or await db.scalar(select(ManualAccess.id).where(ManualAccess.user_id == user.id))
     )
     if user.telegram_id in admin_ids or registered or has_access:

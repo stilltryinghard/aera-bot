@@ -6,13 +6,23 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.bot.keyboards import keyboard
 from app.bot.presentation import devices_label, period_label, price_label, traffic_label
 from app.bot.texts import ru
 from app.config import get_settings
-from app.db.models import Payment, Plan, SaleOrder, Server, Subscription, SupportTicket, User
+from app.db.models import (
+    Payment,
+    Plan,
+    SaleOrder,
+    Server,
+    Subscription,
+    SupportTicket,
+    User,
+    PaidLink,
+    TrialLink,
+)
 from app.db.session import sessions
 from app.services.admin import AdminService
 from app.services.manual_lifecycle import (
@@ -33,11 +43,9 @@ def admin_menu():
     if get_settings().manual_sales:
         return keyboard(
             ("👥 Наши пользователи", "ad:users"),
-            ("📦 Тарифы", "ad:plans"),
-            ("🎫 Поддержка", "ad:support"),
-            ("🎁 Пробные ссылки", "ad:portal:trials"),
+            ("🎁 Остаток пробных ссылок", "ad:portal:trials"),
             ("🔗 Запас платных ссылок", "ad:portal:stock"),
-            ("⭐ Цены и оплата Stars", "ad:portal:pricing"),
+            ("🔔 Уведомление", "ad:update:preview"),
             ("Главное меню", "menu"),
         )
     return keyboard(
@@ -70,9 +78,15 @@ async def admin_start(message: Message, state: FSMContext) -> None:
 async def admin_overview(db):
     if not get_settings().manual_sales:
         return ru.ADMIN_TITLE
-    from app.services.trial_metrics import trial_summary
-
-    return ru.ADMIN_TITLE + "\n\n" + await trial_summary(db)
+    total_users = await db.scalar(select(func.count(User.id)))
+    customers = await db.scalar(select(func.count(User.id)).where(current_customer_condition()))
+    trial_free = await db.scalar(select(func.count(TrialLink.id)).where(TrialLink.status == "FREE"))
+    paid_free = await db.scalar(select(func.count(PaidLink.id)).where(PaidLink.status == "FREE"))
+    reserved = await db.scalar(select(func.count(PaidLink.id)).where(PaidLink.status == "RESERVED"))
+    return (
+        f"Управление AERA\n\n👥 Пользователей бота: {total_users}\n💎 С действующим платным доступом: {customers}"
+        f"\n\n🎁 Остаток пробных ссылок: {trial_free}\n🔗 Остаток платных ссылок: {paid_free}\n⏳ В резерве: {reserved}"
+    )
 
 
 @router.message(AdminState.reply, ~F.text.startswith("/"))
@@ -199,11 +213,14 @@ async def admin_action(call: CallbackQuery, state: FSMContext) -> None:
                 )
             )
             if section == "users":
+                total = await db.scalar(
+                    select(func.count()).select_from(query.order_by(None).subquery())
+                )
+                text = f"👥 Наши пользователи — {total}\n\nДействующий платный доступ:\n" + (
+                    "\n".join(f"• ID: {r.telegram_id}" for r in records[:25])
+                    or "Пока нет пользователей."
+                )
                 markup = keyboard(
-                    *[
-                        (r.first_name or r.username or str(r.telegram_id), f"ad:user:{r.id}")
-                        for r in records[:25]
-                    ],
                     *([("Предыдущая страница", f"ad:users:{page - 1}")] if page else []),
                     *(
                         [("Следующая страница", f"ad:users:{page + 1}")]
@@ -214,7 +231,7 @@ async def admin_action(call: CallbackQuery, state: FSMContext) -> None:
                     ("Назад", "ad:menu"),
                 )
                 if not records:
-                    text = "👥 Наши пользователи\n\nДействующих платных подписок пока нет."
+                    text = "👥 Наши пользователи — 0\n\nДействующих платных подписок пока нет."
             elif section == "support":
                 markup = keyboard(
                     *[(f"{r.subject[:32]} · {r.status}", f"ad:ticket:{r.id}") for r in records],
@@ -270,11 +287,18 @@ async def admin_action(call: CallbackQuery, state: FSMContext) -> None:
             sub = await db.scalar(select(Subscription).where(Subscription.user_id == user.id))
             text = f"Telegram: {user.telegram_id}\n@{user.username or '-'}\n"
             if get_settings().manual_sales:
-                from app.db.models import ManualAccess
+                from app.db.models import FamilyAccess, ManualAccess
 
                 access = await db.scalar(
                     select(ManualAccess).where(ManualAccess.user_id == user.id)
                 )
+                family = await db.scalar(
+                    select(FamilyAccess).where(
+                        FamilyAccess.user_id == user.id, FamilyAccess.is_active.is_(True)
+                    )
+                )
+                if family:
+                    text += f"\n✅ Семья · бессрочно\n📱 Устройств: {family.device_limit or 'безлимит'}\n"
                 paid = await current(db, user.id)
                 if access and paid is None:
                     plan = await db.get(Plan, access.plan_id)
@@ -294,9 +318,9 @@ async def admin_action(call: CallbackQuery, state: FSMContext) -> None:
                     )
                     text += f"🔗 Личный ключ: {paid.label}\n"
                     if paid.expires_at:
-                        from app.bot.portal import expiry_copy
+                        from app.services.cabinet import expiry_text
 
-                        text += expiry_copy(paid.expires_at, "ru") + "\n"
+                        text += expiry_text(paid.expires_at, "ru") + "\n"
                     else:
                         text += "⏳ Срок начнётся после первого VPN-подключения.\n"
             if sub:

@@ -1,0 +1,19 @@
+{
+  "lint_count": 676,
+  "lint_codes": {
+    "I001": 92,
+    "E501": 396,
+    "E701": 116,
+    "E702": 51,
+    "E401": 8,
+    "E402": 6,
+    "F401": 7
+  },
+  "unresolved_app_imports": [],
+  "absolute_external_paths": [
+    "/etc/aera-payment/platega.json",
+    "/opt/aera/.renewal-worker.lock",
+    "/opt/aera/.trial-upgrade-sync.lock",
+    "/var/lib/aera-control/history.db"
+  ]
+}

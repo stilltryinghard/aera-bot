@@ -15,7 +15,7 @@ from sqlalchemy import select, text
 from app.api.admin import router as admin_router
 from app.api.crypto import router as crypto_router
 from app.api.external_payments import router as external_payments_router
-from app.api.freekassa import router as freekassa_router
+from app.api.payment_pages import router as payment_pages_router
 from app.config import get_settings
 from app.core.exceptions import AERAError
 from app.core.logging import log_error
@@ -30,8 +30,8 @@ from app.services.provisioning import ProvisioningService
 settings = get_settings()
 vault = TokenVault(settings.app_secret)
 redis = Redis.from_url(settings.redis_url)
-adapter = create_adapter(sessions, settings)
-provisioner = ProvisioningService(sessions, adapter, vault)
+adapter = None if settings.manual_sales else create_adapter(sessions, settings)
+provisioner = None if settings.manual_sales else ProvisioningService(sessions, adapter, vault)
 logger = logging.getLogger("aera")
 
 
@@ -48,14 +48,20 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="AERA VPN", version="0.1.0", lifespan=lifespan)
-app.include_router(admin_router)
-app.include_router(crypto_router)
-app.include_router(external_payments_router)
+if not settings.manual_sales:
+    app.include_router(admin_router)
+    app.include_router(crypto_router)
+    app.include_router(external_payments_router)
 # Card checkout is not configured; expose only informational return pages.
-# FreeKassa webhook enabled; signature and source-IP validation required.
-app.include_router(freekassa_router)
-from app.api.checkout_api import router as checkout_api_router
-app.include_router(checkout_api_router)
+app.include_router(payment_pages_router)
+from app.api.platega import router as platega_router
+
+app.include_router(platega_router)
+from app.api.device_access import router as device_router
+app.include_router(device_router)
+from app.api.control import router as control_router
+
+app.include_router(control_router)
 
 
 @app.exception_handler(AERAError)
@@ -119,7 +125,7 @@ async def ready() -> dict:
 
 @app.get("/sub/{token}")
 async def subscription(token: str, request: Request) -> PlainTextResponse:
-    if len(token) > 128:
+    if settings.manual_sales or len(token) > 128:
         raise HTTPException(404, "Access unavailable")
     # Count by IP, not by secret. Redis errors fail closed on public endpoints.
     peer = request.client.host if request.client else "unknown"
@@ -179,7 +185,11 @@ class Confirmation(BaseModel):
 
 @app.post("/api/v1/payments/mock/confirm")
 async def confirm(payload: Confirmation, x_mock_secret: str = Header(default="")) -> dict:
-    if settings.app_env == "production" or settings.payment_provider != "mock":
+    if (
+        settings.manual_sales
+        or settings.app_env == "production"
+        or settings.payment_provider != "mock"
+    ):
         raise HTTPException(404)
     provider = MockPaymentProvider(settings.mock_payment_secret)
     try:
